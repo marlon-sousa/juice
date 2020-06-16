@@ -43,7 +43,7 @@ class ConsoleFormatter(logging.Formatter):
     
     def __init__(self, *a, **kw): 
         "Initialise the `ConsoleFormatter`."
-        if kw.has_key('wrap'):     # if there's a wrap= argument
+        if 'wrap' in kw:     # if there's a wrap= argument
             self.wrap = kw['wrap'] # steal it
             del kw['wrap']         # and delete it
         else: 

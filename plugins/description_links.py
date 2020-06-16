@@ -36,7 +36,7 @@ class Plugin(object):
                 pass
             
     def launch_browser(self,event):
-        if self.rclickmap.has_key(event.GetId()):
+        if event.GetId() in self.rclickmap:
             webbrowser.open(self.rclickmap[event.GetId()])
 
 class URLLister(SGMLParser):

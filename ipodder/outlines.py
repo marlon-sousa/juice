@@ -7,7 +7,7 @@ but also for playlist management, listing items, and so on.
 
 import xml.sax
 import xml.dom.minidom
-import StringIO
+import io
 
 import logging
 log = logging.getLogger('Juice.Outline')
@@ -15,7 +15,7 @@ SPAM = logging.DEBUG >> 1
 spam = lambda *a, **kw: log.log(SPAM, *a, **kw)
 
 # Other parts of iPodder
-import hooks
+from . import hooks
 
 class Node(object): 
     """An outliner node."""
@@ -38,12 +38,12 @@ class Node(object):
         self._children = []
         # Node attributes, exported to OPML
         self._atts = {'type': '', 'text': ''}
-        assert not kwargs.has_key('type') # force subclasses to set .type
+        assert 'type' not in kwargs # force subclasses to set .type
         self.update(kwargs)
         # Members
         spam("Node.__init__: args = %s", repr(args))
         if len(args): 
-            if isinstance(args[0], str) or isinstance(args[0], unicode): 
+            if isinstance(args[0], str) or isinstance(args[0], str): 
                 self.text = args[0]
                 self.type = 'text'
                 args = args[1:]
@@ -67,17 +67,17 @@ class Node(object):
             
     # Dict-style access
     def get(self, key, default=None): return self._atts.get(key, default)
-    def has_key(self, key): return self._atts.has_key(key)
-    def items(self): return self._atts.items()
-    def keys(self): return self._atts.keys()
-    def values(self): return self._atts.values()
+    def has_key(self, key): return key in self._atts
+    def items(self): return list(self._atts.items())
+    def keys(self): return list(self._atts.keys())
+    def values(self): return list(self._atts.values())
     
     def update(self, otherdict): 
         """Update our node attributes from another dict."""
         try: 
             for key in otherdict: 
                 if key in Node.reserved_atts: 
-                    raise ValueError, key
+                    raise ValueError(key)
                 val = otherdict[key]
                 self._atts[key] = val
         finally: 
@@ -87,7 +87,7 @@ class Node(object):
     def __getitem__(self, key): 
         """Get an item. Reserved keys are forbidden."""
         if key in Node.reserved_atts: 
-            raise ValueError, key
+            raise ValueError(key)
         if isinstance(key, (int, slice)): 
             return self._children.__getitem__(key)
         else: 
@@ -96,7 +96,7 @@ class Node(object):
     def __setitem__(self, key, value): 
         """Set an item. Reserved keys are forbidden."""
         if key in Node.reserved_atts: 
-            raise ValueError, key
+            raise ValueError(key)
         try: 
             if isinstance(key, (int, slice)): 
                 self._children.__setitem__(key, value)
@@ -162,7 +162,7 @@ class Node(object):
         try: 
             return object.__getattribute__(self, '_atts')[att]
         except KeyError: 
-            raise AttributeError, att
+            raise AttributeError(att)
         
     def __setattr__(self, att, value): 
         """Set an attribute. 
@@ -192,12 +192,12 @@ class Node(object):
             del self._atts[att]
             self.notifychanges()
         except KeyError: 
-            raise AttributeError, att
+            raise AttributeError(att)
             
     # Other special methods
     def __repr__(self): 
         atts = self._atts
-        attnames = atts.keys() # take a copy
+        attnames = list(atts.keys()) # take a copy
         attnames.sort()
         bits = ['%s=%s' % (attname, repr(atts[attname]))
                 for attname in attnames]
@@ -215,9 +215,9 @@ class Node(object):
         if len(self) != len(other): 
             spam("Length mismatch: %d != %d", len(self), len(other))
             return False 
-        myattnames = self.keys()
+        myattnames = list(self.keys())
         myattnames.sort()
-        attnames = other.keys()
+        attnames = list(other.keys())
         attnames.sort()
         if attnames != myattnames: 
             spam("Attribute names mismatch.")
@@ -259,13 +259,13 @@ class Head(Node):
         top.appendChild(head)
         headbits = {}
         headbits.update(self)
-        if not headbits.has_key('dateCreated'):  
+        if 'dateCreated' not in headbits:  
             pass # we should do something
-        if not headbits.has_key('dateModified'):  
+        if 'dateModified' not in headbits:  
             pass # we should do something
-        if headbits.has_key('type'):
+        if 'type' in headbits:
             del headbits['type']
-        for bit, value in headbits.items(): 
+        for bit, value in list(headbits.items()): 
             elem = doc.createElement(bit)
             data = doc.createTextNode(str(value).strip())
             elem.appendChild(data)
@@ -285,7 +285,7 @@ class Head(Node):
             #    atts['type'] = 'text'
             if atts['type'] == 'text': 
                 del atts['type']
-            attnames = atts.keys()
+            attnames = list(atts.keys())
             attnames.sort()
             for attname in attnames: 
                 value = atts[attname]
@@ -299,7 +299,7 @@ class Head(Node):
         #body.appendChild(suck(self))
 
         # return doc.toxml()
-        outs = StringIO.StringIO()
+        outs = io.StringIO()
         doc.writexml(outs, '', '    ', '\n')
         return outs.getvalue()
 
@@ -330,10 +330,10 @@ class Head(Node):
         
         if isinstance(resource, str): 
             try: 
-                sio = StringIO.StringIO(resource)
+                sio = io.StringIO(resource)
                 xml.sax.parse(sio, opmlhandler)
                 sio.close()
-            except xml.sax._exceptions.SAXParseException, ex:
+            except xml.sax._exceptions.SAXParseException as ex:
                 if ex.args == ('undefined entity',): 
                     # try again
                     raise
@@ -386,12 +386,12 @@ class OPMLEventHandler(xml.sax.handler.ContentHandler):
             self.startOutline(atts)
         self.stack.append(name)
         spam("starting %s", name)
-        for att, val in atts.items():
+        for att, val in list(atts.items()):
             spam("  %s = %s", att, repr(val))
     def startOutline(self, atts): 
         parent = self.context[-1]
         child = Node()
-        for att, val in atts.items(): 
+        for att, val in list(atts.items()): 
             child[att] = val
         #AG: this is a little ugly.  To make "rss" nodes look like
         #other types, we map the xmlUrl attribute to url if the
@@ -521,15 +521,15 @@ if __name__ == '__main__':
 
         def test_protected_attributes(self): 
             # Protect on initialisation
-            self.failUnlessRaises(ValueError, lambda: Node(parent="this"))
-            self.failUnlessRaises(ValueError, lambda: Node(hooks="this"))
+            self.assertRaises(ValueError, lambda: Node(parent="this"))
+            self.assertRaises(ValueError, lambda: Node(hooks="this"))
             # Protect on update
             node = Node("")
             def sneaky(): node.update({'parent':1})
-            self.failUnlessRaises(ValueError, sneaky)
+            self.assertRaises(ValueError, sneaky)
             # Protect on direct assignment
             def blatant(): node['hooks'] = 1
-            self.failUnlessRaises(ValueError, blatant)
+            self.assertRaises(ValueError, blatant)
 
         def test_autoparentification(self): 
             node = Node("parent", Node("child"))
@@ -553,7 +553,7 @@ if __name__ == '__main__':
             parent2 = Node("other parent")
             child = Node("child")
             parent.append(child)
-            self.failUnlessRaises(AssertionError, 
+            self.assertRaises(AssertionError, 
                     lambda: parent2.append(child))
 
         def test_delete_atts(self): 
@@ -563,12 +563,12 @@ if __name__ == '__main__':
             assert not hasattr(node, 'a')
             # Delete 'b' as if it's an att, then check it's gone by key. 
             del node.b
-            assert not node.has_key('b')
+            assert 'b' not in node
             # Make sure that deletion of non-existent atts fails. 
             def stupid(): del node.c
-            self.failUnlessRaises(AttributeError, stupid)
+            self.assertRaises(AttributeError, stupid)
             def asstupid(): del node['c']
-            self.failUnlessRaises(KeyError, asstupid)
+            self.assertRaises(KeyError, asstupid)
 
         def test_delete_items(self): 
             tree = self.create_tree()
@@ -587,7 +587,7 @@ if __name__ == '__main__':
             node = Node()
             def creosote(): raise IOError # it barfs!
             node.hooks.add("bucket", creosote)
-            self.failUnlessRaises(IOError, node.hooks.get("bucket"))
+            self.assertRaises(IOError, node.hooks.get("bucket"))
 
         def test_notify(self): 
             class NotificationFailure(Exception): pass
@@ -610,15 +610,15 @@ if __name__ == '__main__':
                     self.caught_child_change = False
                 def check(self): 
                     if not self.caught_change: 
-                        raise NotificationFailure, "Didn't catch change."
+                        raise NotificationFailure("Didn't catch change.")
                     if not self.caught_child_change: 
-                        raise NotificationFailure, "Didn't catch change of child."
+                        raise NotificationFailure("Didn't catch change of child.")
                     self.reset()
             
             tester = Node('tester', hair='lots')
             parent = Node('parent', tester)
             tracker = Tracker(tester, parent)
-            self.failUnlessRaises(NotificationFailure, tracker.check)
+            self.assertRaises(NotificationFailure, tracker.check)
             # Attribute assignment
             tester.text = 'ouch!'
             tracker.check()

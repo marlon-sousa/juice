@@ -59,10 +59,10 @@ if __name__ == "__main__":
     try:
         inputFilename = sys.argv[1]
     except IndexError:
-        print "Usage: mkconstants.py <gmail.js>"
+        print("Usage: mkconstants.py <gmail.js>")
         raise SystemExit
 
-    print "Reading `%s`..." % inputFilename
+    print(("Reading `%s`..." % inputFilename))
     code = open(inputFilename).read()
 
     jsVersion = re.search("var %s=(.+?);" % VAR_JS_VERSION, code).group(1)
@@ -85,8 +85,8 @@ if __name__ == "__main__":
 
     lines.insert(0, FILE_HEADER % jsVersion.strip("'"))
 
-    print "Writing `%s`..." % OUTPUT_FILENAME
+    print(("Writing `%s`..." % OUTPUT_FILENAME))
     open(OUTPUT_FILENAME, "w").writelines(lines)
 
-    print "Done."
+    print("Done.")
     

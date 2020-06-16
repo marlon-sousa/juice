@@ -38,13 +38,13 @@ import logging
 import threading
 import socket
 import random
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 import hashlib
 import gzip
 import zlib
-import StringIO
-import pickle, cPickle # so we can catch exceptions
-import urlparse, base64, urllib # for _open_resource
+import io
+import pickle, pickle # so we can catch exceptions
+import urllib.parse, base64, urllib.request, urllib.parse, urllib.error # for _open_resource
 import re
 import tempfile
 import platform
@@ -54,17 +54,17 @@ try:
 except ImportError: 
     timeoutsocket = None
 
-from configuration import __version__
-import threads
-import hooks
+from .configuration import __version__
+from . import threads
+from . import hooks
 
-import contrib.feedparser as feedparser
-from contrib.BitTorrent.bencode import bencode, bdecode
-from contrib.BitTorrent.btformats import check_message
-import contrib.BitTorrent.download as download
-import contrib.BitTorrent.track as track
-import contrib.urlnorm as urlnorm
-import itunes
+from . import contrib.feedparser as feedparser
+from .contrib.BitTorrent.bencode import bencode, bdecode
+from .contrib.BitTorrent.btformats import check_message
+from . import contrib.BitTorrent.download as download
+from . import contrib.BitTorrent.track as track
+from . import contrib.urlnorm as urlnorm
+from . import itunes
 
 if hasattr(socket, 'setdefaulttimeout'): 
     if __name__ == '__main__': 
@@ -115,7 +115,7 @@ class GenericGrabber(threads.SelfLogger):
         self.what = what # probably a URL
         self.blocksize = blocksize
 
-        if isinstance(dest, basestring): 
+        if isinstance(dest, str): 
             self.name = os.path.basename(dest)
             self.destfilename = dest
             self.destfp = None
@@ -204,13 +204,13 @@ def build_opener(*handlers):
         log.debug("Using custom build_opener.")
         build_opener.warned = True
 
-    opener = urllib2.OpenerDirector()
+    opener = urllib.request.OpenerDirector()
     default_classes = [
-        urllib2.ProxyHandler, urllib2.UnknownHandler, urllib2.HTTPHandler,
-        urllib2.HTTPDefaultErrorHandler, urllib2.HTTPRedirectHandler,
-        urllib2.FTPHandler, urllib2.FileHandler]
+        urllib.request.ProxyHandler, urllib.request.UnknownHandler, urllib.request.HTTPHandler,
+        urllib.request.HTTPDefaultErrorHandler, urllib.request.HTTPRedirectHandler,
+        urllib.request.FTPHandler, urllib.request.FileHandler]
     if hasattr(urllib2.httplib, 'HTTPS'):
-        default_classes.append(urllib2.HTTPSHandler)
+        default_classes.append(urllib.request.HTTPSHandler)
     skip = []
     for klass in default_classes:
         for check in handlers:
@@ -225,7 +225,7 @@ def build_opener(*handlers):
     for h in handlers:
         if urllib2.inspect.isclass(h):
             h = h()
-        if isinstance(h, urllib2.ProxyHandler): 
+        if isinstance(h, urllib.request.ProxyHandler): 
             opener.add_handler(h)
 
     for klass in default_classes:
@@ -234,7 +234,7 @@ def build_opener(*handlers):
     for h in handlers:
         if urllib2.inspect.isclass(h):
             h = h()
-        if not isinstance(h, urllib2.ProxyHandler): 
+        if not isinstance(h, urllib.request.ProxyHandler): 
             opener.add_handler(h)
 
     return opener
@@ -251,7 +251,7 @@ class GzipFile(gzip.GzipFile):
     def _read_gzip_header(self, buffer):
         """Overloaded _read_gzip_header() method. Returns what's left of your buffer."""
         old_fileobj = self.fileobj
-        self.fileobj = StringIO.StringIO(buffer)
+        self.fileobj = io.StringIO(buffer)
         gzip.GzipFile._read_gzip_header(self)
         position = self.fileobj.tell()
         self.fileobj = old_fileobj
@@ -261,7 +261,7 @@ class GzipFile(gzip.GzipFile):
         log.log(SPAM, "len(unused_reads) == %d", len(self.unused_reads))
         assert len(self.unused_reads) >= 8
         old_fileobj = self.fileobj
-        self.fileobj = StringIO.StringIO(self.unused_reads)
+        self.fileobj = io.StringIO(self.unused_reads)
         self.fileobj.read() # seek to the end
         self.unused_reads = ''
         #self.fileobj.seek(0, 2)
@@ -273,7 +273,7 @@ class GzipFile(gzip.GzipFile):
         """Overloaded _read() method."""
 
         if self.fileobj is None:
-            raise EOFError, "Reached EOF"
+            raise EOFError("Reached EOF")
 
         # Read a chunk of data from the file
         buf = self.unused_reads + self.fileobj.read(size)
@@ -286,7 +286,7 @@ class GzipFile(gzip.GzipFile):
             # First, check if we're at the end of the file;
             # if so, it's time to stop; no more members to read.
             if not buf:
-                raise EOFError, "Reached EOF"
+                raise EOFError("Reached EOF")
 
             self._init_read()
             buf = self._read_gzip_header(buf)
@@ -301,7 +301,7 @@ class GzipFile(gzip.GzipFile):
             uncompress = self.decompress.flush()
             self._read_eof()
             self._add_read_data( uncompress )
-            raise EOFError, 'Reached EOF'
+            raise EOFError('Reached EOF')
 
         uncompress = self.decompress.decompress(buf)
         self._add_read_data(uncompress)
@@ -361,21 +361,21 @@ def _open_resource(url_file_stream_or_string, etag, modified, agent,
     if url_file_stream_or_string == "-":
         return sys.stdin
 
-    if urlparse.urlparse(url_file_stream_or_string)[0] in ('http', 'https', 'ftp','itms'):
+    if urllib.parse.urlparse(url_file_stream_or_string)[0] in ('http', 'https', 'ftp','itms'):
         if not agent:
             agent = USER_AGENT
         # test for inline user:password for basic auth
         auth = None
         if base64:
-            urltype, rest = urllib.splittype(url_file_stream_or_string)
-            realhost, rest = urllib.splithost(rest)
+            urltype, rest = urllib.parse.splittype(url_file_stream_or_string)
+            realhost, rest = urllib.parse.splithost(rest)
             if realhost:
-                user_passwd, realhost = urllib.splituser(realhost)
+                user_passwd, realhost = urllib.parse.splituser(realhost)
                 if user_passwd:
                     url_file_stream_or_string = "%s://%s%s" % (urltype, realhost, rest)
                     auth = base64.encodestring(user_passwd).strip()
         # try to open with urllib2 (to use optional headers)
-        request = urllib2.Request(url_file_stream_or_string)
+        request = urllib.request.Request(url_file_stream_or_string)
         request.add_header("User-Agent", agent)
         if etag:
             request.add_header("If-None-Match", etag)
@@ -414,10 +414,9 @@ def _open_resource(url_file_stream_or_string, etag, modified, agent,
             request.add_header("Authorization", "Basic %s" % auth)
         if feedparser.ACCEPT_HEADER:
             request.add_header("Accept", feedparser.ACCEPT_HEADER)
-        for key, value in user_headers.items(): 
+        for key, value in list(user_headers.items()): 
             request.add_header(key, value)
-        opener = apply(urllib2.build_opener, 
-                       tuple([feedparser._FeedURLHandler()] + handlers))
+        opener = urllib.request.build_opener(*tuple([feedparser._FeedURLHandler()] + handlers))
         opener.addheaders = [] # RMK - must clear so we only send our custom User-Agent
         direct = True
         try: 
@@ -446,7 +445,7 @@ def _open_resource(url_file_stream_or_string, etag, modified, agent,
 
 _open_resource.warned = False
 
-class MyHTTPPasswordMgrWithDefaultRealm(urllib2.HTTPPasswordMgrWithDefaultRealm):
+class MyHTTPPasswordMgrWithDefaultRealm(urllib.request.HTTPPasswordMgrWithDefaultRealm):
     """This class band-aids over some quirks in urllib2's password managers.
     Specifically, the HTTPPasswordMgr.find_user_password() method sometimes
     receives an authuri that is missing the protocol designator, "http://".
@@ -457,7 +456,7 @@ class MyHTTPPasswordMgrWithDefaultRealm(urllib2.HTTPPasswordMgrWithDefaultRealm)
     def find_user_password(self, realm, authuri):
         if not authuri.startswith('http://'):
             authuri = 'http://%s' % authuri
-        return urllib2.HTTPPasswordMgrWithDefaultRealm.find_user_password(self, realm, authuri)
+        return urllib.request.HTTPPasswordMgrWithDefaultRealm.find_user_password(self, realm, authuri)
     
 class BasicGrabber(GenericGrabber): 
     """Basic grabber. Uses feedparser to help."""
@@ -562,7 +561,7 @@ class BasicGrabber(GenericGrabber):
                     trace = True
                     reason = 'socket.error with args %s' % repr(ex.args)
 
-        elif isinstance(ex, urllib2.URLError): 
+        elif isinstance(ex, urllib.error.URLError): 
             uedefault = 'URLError wrapped around unexpected %s' % (
                 repr(ex.reason))
             trace, reason, useclass = self._explainDownloadException(ex.reason, uedefault)
@@ -595,16 +594,16 @@ class BasicGrabber(GenericGrabber):
         try: 
             return callable(*args, **kwargs)
             
-        except Exception, ex: 
+        except Exception as ex: 
             # log.exception("_translateUsualDownloadErrors caught:") 
             trace, reason, useclass = self._explainDownloadException(ex)
             if trace:
                 self.exception("Caught %s", reason)
-            raise useclass, (reason, ex)
+            raise useclass(reason, ex)
 
     def _log_cachestate(self, message): 
         statecopy = self.whatstate.copy()
-        if statecopy.has_key('content'): 
+        if 'content' in statecopy: 
             statecopy['content'] = '...'
         import pprint
         self.spam("%s: %s", message, pprint.pformat(statecopy))
@@ -617,7 +616,7 @@ class BasicGrabber(GenericGrabber):
         self.cachekey = "cache\0%s" % str(urlnorm.normalize(self.what))
         try: 
             gotstate = state.get(self.cachekey, {})
-        except (EOFError, pickle.UnpicklingError, cPickle.UnpicklingError), ex: 
+        except (EOFError, pickle.UnpicklingError, pickle.UnpicklingError) as ex: 
             self.warn("Discarding cache state for %s", self.what)
             gotstate = {}
             self._set_cachestate(gotstate)
@@ -659,7 +658,7 @@ class BasicGrabber(GenericGrabber):
             self.is_cache_complete = whatstate.get('complete', False)
             self.last_hit_complete = self.is_cache_complete
             self.is_cached = True
-            self.cache_fp = StringIO.StringIO(whatstate['content'])
+            self.cache_fp = io.StringIO(whatstate['content'])
             self.cache_headers = headers = whatstate['headers']
             etag = whatstate.get('etag', '')
             modified = whatstate.get('modified', '')
@@ -693,7 +692,7 @@ class BasicGrabber(GenericGrabber):
             self.cache_state = self.whatstate
         clength = self.cache_headers.get('content-length', '0')
         self.content_size = self._parse_length(clength)
-        return self.cache_fp, self.cache_headers, 0L
+        return self.cache_fp, self.cache_headers, 0
         
     def _parse_range(self, content_range): 
         """Parse a Content-Range header.
@@ -713,9 +712,8 @@ class BasicGrabber(GenericGrabber):
             # Seen on EGC and SDR, but not HTTP compliant
             return 0, 0, 0
 
-        raise ValueError, \
-              "Malformed Content-Range header %s" % \
-              repr(content_range)
+        raise ValueError("Malformed Content-Range header %s" % \
+              repr(content_range))
 
     def _parse_length(self, content_length): 
         # Determine the content-length, as it's quite handy.
@@ -723,7 +721,7 @@ class BasicGrabber(GenericGrabber):
             self.debug("Comma found in content-length: %s", content_length)
             content_lengths = content_length.split(',')
             assert len(content_lengths) == 2
-            cachemessagesize, size = map(int, content_lengths)
+            cachemessagesize, size = list(map(int, content_lengths))
             self.debug("Assuming cache message size %d; "
                       "original content-length %d.", 
                       cachemessagesize, size)
@@ -748,7 +746,7 @@ class BasicGrabber(GenericGrabber):
             # We're copying a file. 
             # Implication: we don't need to worry about proxy servers. :)
             os.chdir(os.path.split(what)[0])
-            fp = urllib.urlopen(os.path.splitdrive(what)[1])
+            fp = urllib.request.urlopen(os.path.splitdrive(what)[1])
             headers = fp.info()
             if destfilename is not None and os.path.exists(destfilename): 
                 if os.path.getsize(destfilename) == os.path.getsize(what): 
@@ -757,7 +755,7 @@ class BasicGrabber(GenericGrabber):
                 else: 
                     self.warn("Target exists, but is different length. "\
                               "We will copy again from the beginning.")
-            return fp, headers, 0L
+            return fp, headers, 0
         
         # If we hit this point, we're probably opening a remote resource. 
         # The other possibility is a file: URL. Let's pretend that won't 
@@ -776,7 +774,7 @@ class BasicGrabber(GenericGrabber):
         # a byte-range request to resume it. 
         request_headers = {}
         
-        test_resumability = not self.whatstate.has_key('resumable')
+        test_resumability = 'resumable' not in self.whatstate
         tested_resumability = False
         if test_resumability and False: ### temporarily disabled
             self.debug("Testing for resumability (rules out cache hits)")
@@ -803,13 +801,13 @@ class BasicGrabber(GenericGrabber):
                     
         # If we want to use proxy servers or password-proteced downloads
         # we need to prepare a handler to do so.
-        handlers = [urllib2.HTTPBasicAuthHandler(self.shared_password_mgr), \
-                    urllib2.HTTPDigestAuthHandler(self.shared_password_mgr)]
+        handlers = [urllib.request.HTTPBasicAuthHandler(self.shared_password_mgr), \
+                    urllib.request.HTTPDigestAuthHandler(self.shared_password_mgr)]
 
         if self.http_proxy_server and self.http_proxy_port:
             url = "%s:%s" % (self.http_proxy_server, self.http_proxy_port)
             self.spam("Adding proxy: %s", url)
-            handlers.append(urllib2.ProxyHandler({'http' : url}))                        
+            handlers.append(urllib.request.ProxyHandler({'http' : url}))                        
             if self.http_proxy_username and self.http_proxy_password:
                 # AG: urllib2 is a little quirky, at least in Python 2.3/2.4.
                 # ProxyBasicAuthHandler matches the password against the proxy
@@ -823,8 +821,8 @@ class BasicGrabber(GenericGrabber):
                 passman.add_password(None, url, self.http_proxy_username, self.http_proxy_password)
                 passman.add_password(None, self.what, self.http_proxy_username, self.http_proxy_password)
                 self.spam("Adding proxy authentication handlers for: basic, digest")
-                handlers.append(urllib2.ProxyBasicAuthHandler(passman)) #Try basic first!
-                handlers.append(urllib2.ProxyDigestAuthHandler(passman))
+                handlers.append(urllib.request.ProxyBasicAuthHandler(passman)) #Try basic first!
+                handlers.append(urllib.request.ProxyDigestAuthHandler(passman))
 
         # We install our own opener in a futile attempt to get proxies 
         # working. This should work: 
@@ -853,7 +851,7 @@ class BasicGrabber(GenericGrabber):
                     usegzip = self.use_gzip,
                     user_headers = request_headers)
             headers = fp.info() ###
-        except GrabError, ex: 
+        except GrabError as ex: 
             if isinstance(ex, GzipError): 
                 self.error("Gzip decoding error on open.")
                 # That'll now be disabled from inside 
@@ -870,7 +868,7 @@ class BasicGrabber(GenericGrabber):
 
         # Check for a cache hit. Even if we have something in the cache, 
         # we should only use it if the web server tells us to. 
-        seek = 0L
+        seek = 0
 
         content_range = headers.get('content-range')
         if tested_resumability: 
@@ -907,16 +905,15 @@ class BasicGrabber(GenericGrabber):
             
             elif fp.status == 206: 
                 if content_range is None: 
-                    raise GrabError, \
-                          "Content-Range header missing on 206 response."
+                    raise GrabError("Content-Range header missing on 206 response.")
                 try:
                     begin, end, total_length = self._parse_range(content_range)
                     self.range_begin = begin
                     self.range_end = end
                     self.range_size = end - begin
                     self.content_size = total_length
-                except ValueError, ex: 
-                    raise GrabError, ex.args
+                except ValueError as ex: 
+                    raise GrabError(ex.args)
                 seek = begin
                 if seek > 0: 
                     self.debug("Got partial response!")
@@ -933,27 +930,26 @@ class BasicGrabber(GenericGrabber):
                 if content_range is None: 
                     self.whatstate['resumable'] = False
                     self._cflush()
-                    raise GrabError, "resume failed; disabling it for next time"
+                    raise GrabError("resume failed; disabling it for next time")
                 try:
                     begin, end, total_length = self._parse_range(content_range)
                     if begin == end == total_length == 0: 
                         self.whatstate['resumable'] = False
                         self._cflush()
-                        raise GrabError, \
-                            "resume failed because the return range was 0;" \
-                            "disabling it for next time"
+                        raise GrabError("resume failed because the return range was 0;" \
+                            "disabling it for next time")
                     self.debug("%d, %d, %d", begin, end, total_length)
                     seek = begin
                     self.range_begin = begin
                     self.range_end = end
                     self.range_size = end - begin
                     self.content_size = total_length
-                except ValueError, ex: 
-                    raise GrabError, ex.args
+                except ValueError as ex: 
+                    raise GrabError(ex.args)
             elif fp.status == 404:
-                raise GrabError, "The requested URL was not found: %s" % fp.geturl()
+                raise GrabError("The requested URL was not found: %s" % fp.geturl())
             elif fp.status == 401:
-                raise AuthenticationError, "Unauthorized.  Re-check your username and password on the Authentication tab."           
+                raise AuthenticationError("Unauthorized.  Re-check your username and password on the Authentication tab.")           
         else: 
             self.spam('No status. Assuming 200.')
 
@@ -969,8 +965,8 @@ class BasicGrabber(GenericGrabber):
         # the kludge if the directory server starts issuing headers 
         # that suggest it's cacheable. 
         if what == 'http://www.ipodder.org/discuss/reader$4.opml' \
-        and not (headers.has_key('last-modified') \
-                 or headers.has_key('etag')) \
+        and not ('last-modified' in headers \
+                 or 'etag' in headers) \
         and self.whatstate \
         and self.cache_headers is not None \
         and self.cache_headers['content-length'] == headers['content-length']: 
@@ -998,7 +994,7 @@ class BasicGrabber(GenericGrabber):
         destfilename = self.destfilename
 
         # If it's an ftp:// or http:// URL, normalise `what`. 
-        if urlparse.urlsplit(what)[0].lower() in ['http', 'ftp']: 
+        if urllib.parse.urlsplit(what)[0].lower() in ['http', 'ftp']: 
             if ' ' in what: 
                 self.debug("Re-wrote URL to eliminate spaces.")
             self.what = what = urlnorm.normalize(what)
@@ -1018,9 +1014,9 @@ class BasicGrabber(GenericGrabber):
             # even if GrabErrors are caught. That makes sure our resume 
             # attempt will have access to the right etag, modified etc. 
             whatstate['headers'] = headers
-            if headers.has_key('last-modified'): 
+            if 'last-modified' in headers: 
                 whatstate['modified'] = feedparser._parse_date(headers['last-modified'])
-            if headers.has_key('etag'): 
+            if 'etag' in headers: 
                 whatstate['etag'] = headers['etag']
             self._cflush()
 
@@ -1076,7 +1072,7 @@ class BasicGrabber(GenericGrabber):
                         bytes = seek ### see above
                     else: 
                         destfp = file(destfilename, 'wb')
-                teefp = StringIO.StringIO() # to take a copy
+                teefp = io.StringIO() # to take a copy
                 self.progress(bytes, size)
                 lastpartial = time.time()
                 try:
@@ -1088,7 +1084,7 @@ class BasicGrabber(GenericGrabber):
                             self.warn("Download aborted: %s", self.what)
                             teefp = None # don't cache it
                             self.doneflag.set()
-                            raise UserAborted, "download aborted"
+                            raise UserAborted("download aborted")
                             # TODO: delete the dest file? what else?
                         bytes += len(block)
                         whatstate['partial'] = bytes
@@ -1098,14 +1094,13 @@ class BasicGrabber(GenericGrabber):
                         self.progress(bytes, size)
                         try: 
                             destfp.write(block)
-                        except IOError, ex: 
+                        except IOError as ex: 
                             if hasattr(ex, 'args') and ex.args[0] == 28: 
-                                raise GrabError, \
-                                        ("Can't write; out of disk space.", 
+                                raise GrabError("Can't write; out of disk space.", 
                                          ex)
                             else: 
                                 self.exception("Unexpected IOError on write.")
-                                raise GrabError, ("Unexpected IOError", ex)
+                                raise GrabError("Unexpected IOError", ex)
                         # If we're still small enough, keep taking a copy
                         if teefp is not None: 
                             if bytes > CACHEMAX: 
@@ -1135,19 +1130,19 @@ class BasicGrabber(GenericGrabber):
         except KeyboardInterrupt: # not likely in a thread, but what the hey.
             raise
         
-        except GrabError, ex: # _translateUsualDownloadErrors caught it
+        except GrabError as ex: # _translateUsualDownloadErrors caught it
             if isinstance(ex, GzipError): 
                 self.error("Gzip decoding error on read; "\
                            "disabling gzip for this feed.")
                 whatstate['usegzip'] = False
-            if whatstate.has_key('content'): 
+            if 'content' in whatstate: 
                 del whatstate['content']
             self.cache_state = whatstate
             raise
 
-        except Exception, ex:
+        except Exception as ex:
             self.exception("Problem downloading %s", what)
-            raise GrabError, ("unexpected error %s" % repr(ex), ex)
+            raise GrabError("unexpected error %s" % repr(ex), ex)
 
     def done(self, complete=True): 
         """Declare we're done. Special one-file version."""
@@ -1255,7 +1250,7 @@ class TorrentFile(threads.SelfLogger):
         try: 
             check_message(tinfo)
             self.response = response
-        except ValueError, ex: 
+        except ValueError as ex: 
             self.error("Couldn't decode BitTorrent response file: %s", 
                       str(ex))
             raise # Force whomever is initialising us to deal with it. 
@@ -1265,10 +1260,10 @@ class TorrentFile(threads.SelfLogger):
         # self.info_hash = sha.new(bencode(info)).digest() # also not used?
         self.name = info['name']
 
-        if info.has_key('length'):
+        if 'length' in info:
             self.length = info['length']
         else:
-            raise AssertionError, "can't handle multi-file torrents"
+            raise AssertionError("can't handle multi-file torrents")
             # TODO: wade through real examples and figure out what this 
             # code is trying to accomplish. Okay, so it's calculating 
             # a length, but what's the path variable for? 
@@ -1306,7 +1301,7 @@ class TorrentFile(threads.SelfLogger):
             except AttributeError: 
                 pass
         attrep = ', '.join(["%s=%s" % (att, val)
-                            for att, val in attdict.items()])
+                            for att, val in list(attdict.items())])
         return "<%s.%s instance at 0x%s with attributes %s>" % (
                 self.__module__, 
                 self.__class__.__name__, 
@@ -1330,7 +1325,7 @@ class TorrentGrabber(GenericGrabber):
         generosity -- stick around for longer to upload; 0.0 - 1.0
         """
 
-        assert isinstance(destfilename, basestring), \
+        assert isinstance(destfilename, str), \
                "Torrent grabbing to file like objects is not supported."
         GenericGrabber.__init__(self, what, destfilename, blocksize)
 
@@ -1355,18 +1350,18 @@ class TorrentGrabber(GenericGrabber):
             }
 
         # Set some defaults
-        for statuskey, settings in self.statusMap.items(): 
+        for statuskey, settings in list(self.statusMap.items()): 
             att, default = settings
             setattr(self, att, default)
 
     def errorfunc(self, message):
         """Issue an error on behalf of BT.d.d."""
         self.error("%s thread reports: %s", self.name, message)
-        raise GrabError, message
+        raise GrabError(message)
 
     def statusfunc(self, statusdict): 
         """Called by BT.d.d to indicate its status."""
-        for key, value in statusdict.items(): 
+        for key, value in list(statusdict.items()): 
             self.spam("%s thread reports: %s: %s", 
                       self.name, key, value)
             settings = self.statusMap.get(key)
@@ -1516,7 +1511,7 @@ class TorrentGrabber(GenericGrabber):
                 #download.download() completed because the stopflag was set.
                 self.warn("BitTorrent aborted: %s", self.what)
                 self.doneflag.set() #prevents setting self.complete to True
-                raise UserAborted, "download aborted"            
+                raise UserAborted("download aborted")            
 
         finally:
             if delete_responsefile: 
@@ -1524,18 +1519,18 @@ class TorrentGrabber(GenericGrabber):
                     self.debug("Deleting temporary response file %s", 
                               responsefilename)
                     os.unlink(responsefilename)
-                except OSError, ex:
+                except OSError as ex:
                     pass
 
 if __name__ == '__main__': 
-    import BaseHTTPServer
-    import SimpleHTTPServer
+    import http.server
+    import http.server
     import mimetypes
     import shutil
     import os
     import unittest
     import random
-    import Queue
+    import queue
     import md5
 
     TESTPORT = 58585
@@ -1571,7 +1566,7 @@ if __name__ == '__main__':
         
     def random_content(length): 
         """Return random content.""" 
-        sio = StringIO.StringIO()
+        sio = io.StringIO()
         write_random_content(sio, length)
         return sio.getvalue()
 
@@ -1589,8 +1584,8 @@ if __name__ == '__main__':
         """Test the new GzipFile object."""
         def test_gzipfile(self): 
             # Prepare the gzipped value
-            copy_of_zipper_input = StringIO.StringIO()
-            zipper_output = StringIO.StringIO()
+            copy_of_zipper_input = io.StringIO()
+            zipper_output = io.StringIO()
             zipper = gzip.GzipFile(mode='wb', fileobj=zipper_output)
             for block in yield_random_content(32*1024): 
                 copy_of_zipper_input.write(block)
@@ -1600,9 +1595,9 @@ if __name__ == '__main__':
             zippedcontent = zipper_output.getvalue()
             #log.info("zipped content looks like: %s", repr(zippedcontent[:32]))
             # Now read it back
-            unzipper_input = StringIO.StringIO(zippedcontent)
+            unzipper_input = io.StringIO(zippedcontent)
             #log.info("header check: %s", repr(unzipper_input.read(2)))
-            unzipper_input = StringIO.StringIO(zippedcontent)
+            unzipper_input = io.StringIO(zippedcontent)
             unzipper = GzipFile(mode='rb', fileobj=unzipper_input)
             unzipped_content = unzipper.read() # get all of it
             assert content == unzipped_content
@@ -1622,25 +1617,25 @@ if __name__ == '__main__':
             self.code = code
             self.message = message
             
-    class GrabberTestServer(threads.SelfLogger, BaseHTTPServer.HTTPServer): 
+    class GrabberTestServer(threads.SelfLogger, http.server.HTTPServer): 
         """A test server for Grabbers."""
         
         def __init__(self, server_address, RequestHandlerClass): 
             """Initialise the test server."""
-            BaseHTTPServer.HTTPServer.__init__(self, server_address, RequestHandlerClass)
+            http.server.HTTPServer.__init__(self, server_address, RequestHandlerClass)
             threads.SelfLogger.__init__(self)
             self.name, self.port = server_address
             self.__contents = {}
             self.stopflag = threading.Event()
             self.doneflag = threading.Event()
             self.readyflag = threading.Event()
-            self.promptqueue = Queue.Queue()
+            self.promptqueue = queue.Queue()
             
         def clear(self): 
             self.debug("Clearing contents...")
             server_address = (self.name, self.port)
             # Don't # self.stop()
-            BaseHTTPServer.HTTPServer.__init__(self, server_address, GrabberTestRequestHandler)
+            http.server.HTTPServer.__init__(self, server_address, GrabberTestRequestHandler)
             self.__contents = {} 
 
         def __setitem__(self, key, value): 
@@ -1674,7 +1669,7 @@ if __name__ == '__main__':
                     self.debug("waiting to serve a request.")
                     self.readyflag.set()
                     self.handle_request()
-                except Queue.Empty, ex: 
+                except queue.Empty as ex: 
                     pass # loop around again
             self.debug("stopped.")
             self.server_close()
@@ -1689,12 +1684,12 @@ if __name__ == '__main__':
                 self.debug("waiting...")
                 self.doneflag.wait()
 
-    class GrabberTestRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler): 
+    class GrabberTestRequestHandler(http.server.SimpleHTTPRequestHandler): 
         server_version = "iPodderGrabberTester/1.0"
         protocol_version = "HTTP/1.0"
 
         def __init__(self, request, client_address, server): 
-            SimpleHTTPServer.SimpleHTTPRequestHandler.__init__(self, request, client_address, server)
+            http.server.SimpleHTTPRequestHandler.__init__(self, request, client_address, server)
             self.contents = {}
             
         def send_head(self):
@@ -1727,11 +1722,11 @@ if __name__ == '__main__':
             headers.update(fake.headers)
             
             self.send_response(code, message)
-            for key, value in headers.items(): 
+            for key, value in list(headers.items()): 
                 self.send_header(key, value)
             self.end_headers()
 
-            return StringIO.StringIO(fake.content)
+            return io.StringIO(fake.content)
 
         extensions_map = mimetypes.types_map.copy()
         extensions_map.update({
@@ -1776,10 +1771,10 @@ if __name__ == '__main__':
         def test_spaces(self):
             content = 'Hopefully, this spaces test will work.'
             url = self.prep('filename%20with%20spaces.xml', content=content)
-            import urlparse, urllib2
-            scheme, netloc, path, query, fragment = urlparse.urlsplit(url)
-            path = urllib2.unquote(path)
-            url = urlparse.urlunsplit((scheme, netloc, path, query, fragment))
+            import urllib.parse, urllib.request, urllib.error, urllib.parse
+            scheme, netloc, path, query, fragment = urllib.parse.urlsplit(url)
+            path = urllib.parse.unquote(path)
+            url = urllib.parse.urlunsplit((scheme, netloc, path, query, fragment))
             target = self.tempify('filename with spaces.xml')
             bg = BasicGrabber(url, target)
             bg()
@@ -1807,7 +1802,7 @@ if __name__ == '__main__':
         def test_fp(self): 
             content = "This is a test."
             url = self.prep('rss.xml', content=content)
-            sio = StringIO.StringIO()
+            sio = io.StringIO()
             bg = BasicGrabber(url, sio)
             bg()
             assert sio.getvalue() == content
@@ -1815,8 +1810,8 @@ if __name__ == '__main__':
 
         def make_gzipped_content(self, maxlength=32*1024, minlength=1*1024): 
             # Prepare the gzipped value
-            copy_of_zipper_input = StringIO.StringIO()
-            zipper_output = StringIO.StringIO()
+            copy_of_zipper_input = io.StringIO()
+            zipper_output = io.StringIO()
             zipper = gzip.GzipFile(mode='wb', fileobj=zipper_output)
             length = random.randint(minlength, maxlength)
             sofar = 0
@@ -1833,7 +1828,7 @@ if __name__ == '__main__':
             #log.info("zipped content looks like: %s", repr(zippedcontent[:32]))
             url = self.prep('rss.xml', content=zippedcontent, headers={'Content-Encoding':'gzip'})
             # Grab it and check it
-            sio = StringIO.StringIO()
+            sio = io.StringIO()
             bg = BasicGrabber(url, sio)
             bg()
             assert sio.getvalue() == content
@@ -1848,7 +1843,7 @@ if __name__ == '__main__':
             url2 = self.prep('redirect.xml', content="The redirect wasn't processed.", 
                     code=302, message="fnord", headers={'Location': url}, prompt=2)
             # Grab it and check it
-            sio = StringIO.StringIO()
+            sio = io.StringIO()
             bg = BasicGrabber(url2, sio)
             bg()
             value = sio.getvalue()
@@ -1875,7 +1870,7 @@ if __name__ == '__main__':
             #url3 = self.prep('redirect2.xml', content="The redirect wasn't processed.", 
             #        code=302, message="fnord", headers={'Location': url2}, prompt=3)
             # Grab it and check it
-            sio = StringIO.StringIO()
+            sio = io.StringIO()
             bg = BasicGrabber(url, sio)
             bg()
             value = sio.getvalue()
@@ -1890,7 +1885,7 @@ if __name__ == '__main__':
                 'Last-Modified': 'Mon, 29 Nov 2004 10:30:21 GMT'
                 }
             url = self.prep('rss.xml', content=content, headers=headers)
-            sio = StringIO.StringIO()
+            sio = io.StringIO()
             state = {}
             bg = BasicGrabber(url, sio, state=state)
             fn, headers = bg()
@@ -1901,11 +1896,11 @@ if __name__ == '__main__':
             #state[state.keys()[0]]['content'] = '(stuff)'
             #import pprint
             #pprint.pprint(state)
-            keys = state.keys()
+            keys = list(state.keys())
             assert len(keys) == 1
             cstate = state[keys[0]]
             for key in ['checked', 'content', 'etag', 'headers', 'modified']: 
-                assert cstate.has_key(key)
+                assert key in cstate
 
             # Fix the fake object to return a 304 with no content.
             self.httpd.clear()
@@ -1914,7 +1909,7 @@ if __name__ == '__main__':
                             code = 304, 
                             message = 'Not changed.', 
                             headers = headers)
-            sio = StringIO.StringIO()
+            sio = io.StringIO()
             bg = BasicGrabber(url, sio, state=state)
             fn, headers = bg()
 
@@ -1942,7 +1937,7 @@ if __name__ == '__main__':
                 'Content-Encoding': 'gzip'
                 }
             url = self.prep('rss.xml', content=zippedcontent, headers=headers)
-            sio = StringIO.StringIO()
+            sio = io.StringIO()
             state = {}
             bg = BasicGrabber(url, sio, state=state)
             fn, headers = bg()
@@ -1960,7 +1955,7 @@ if __name__ == '__main__':
                             code = 304, 
                             message = 'Not changed.', 
                             headers = headers)
-            sio = StringIO.StringIO()
+            sio = io.StringIO()
             bg = BasicGrabber(url, sio, state=state)
             fn, headers = bg()
 
@@ -1977,12 +1972,12 @@ if __name__ == '__main__':
             state = {}
             url = self.prep('rss.xml', content=content, 
                             headers=headers)
-            sio = StringIO.StringIO()
+            sio = io.StringIO()
             bg = BasicGrabber(url, sio, state=state)
             bg()
             assert sio.getvalue() == content
             # Without an extra prompt, this will hang unless offline works. 
-            sio = StringIO.StringIO()
+            sio = io.StringIO()
             bg = BasicGrabber(url, sio, state=state, offline=True)
             bg()
             assert sio.getvalue() == content, sio.getvalue()
@@ -2021,7 +2016,7 @@ if __name__ == '__main__':
             secondhalf = content[stopper._last_bytes:]
             # Check a few things
             assert len(state) == 1
-            whatstate = state[state.keys()[0]]
+            whatstate = state[list(state.keys())[0]]
             partial = whatstate['partial']
             assert partial > 0
             log.debug("whatstate['partial'] == %d", partial)
@@ -2064,7 +2059,7 @@ if __name__ == '__main__':
                           'parse_allowed_interval': 1 }
             rawconfig.update(kwargs)
             self.args = []
-            for key, value in rawconfig.items(): 
+            for key, value in list(rawconfig.items()): 
                 self.args.extend(['--%s' % key, value])
             self.config, files = track.parseargs(self.args, track.defaults, 0, 0)
             # files is ignored in BitTorrent.track.track(), too. 

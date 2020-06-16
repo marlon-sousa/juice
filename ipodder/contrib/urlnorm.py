@@ -27,8 +27,8 @@ inspired by:
 
 __license__ = "Python"
 
-import re, unicodedata, urlparse
-from urllib import quote, unquote
+import re, unicodedata, urllib.parse
+from urllib.parse import quote, unquote
 
 default_port = {
     'ftp': 21,
@@ -46,7 +46,7 @@ default_port = {
 def normalize(url):
     """Normalize a URL."""
 
-    scheme,auth,path,query,fragment = urlparse.urlsplit(url.strip())
+    scheme,auth,path,query,fragment = urllib.parse.urlsplit(url.strip())
     (userinfo,host,port)=re.search('([^@]*@)?([^:]*):?(.*)',auth).groups()
 
     # Always provide the URI scheme in lowercase characters.
@@ -60,8 +60,8 @@ def normalize(url):
     # Always use uppercase A-through-F characters when percent-encoding.
     # All portions of the URI must be utf-8 encoded NFC from Unicode strings
     def clean(string):
-        if not isinstance(string, unicode): 
-            string=unicode(unquote(string),'utf-8','replace')
+        if not isinstance(string, str): 
+            string=str(unquote(string),'utf-8','replace')
         return unicodedata.normalize('NFC',string).encode('utf-8')
     path=quote(clean(path),"~:/?#[]@!$&'()*+,;=")
     fragment=quote(clean(fragment),"~")
@@ -96,7 +96,7 @@ def normalize(url):
 
     # For schemes that define a port, use an empty port if the default is
     # desired
-    if port and scheme in default_port.keys():
+    if port and scheme in list(default_port.keys()):
         if port.isdigit():
             port=str(int(port))
             if int(port)==default_port[scheme]:
@@ -106,7 +106,7 @@ def normalize(url):
     auth=(userinfo or "") + host
     if port: auth+=":"+port
     if url.endswith("#") and query=="" and fragment=="": path+="#"
-    return urlparse.urlunsplit((scheme,auth,path,query,fragment))
+    return urllib.parse.urlunsplit((scheme,auth,path,query,fragment))
 
 if __name__ == "__main__":
     import unittest
@@ -207,7 +207,7 @@ if __name__ == "__main__":
                     (original, normalized, normalize(original))
         return test()
 
-    for (original,normalized) in tests.items():
+    for (original,normalized) in list(tests.items()):
         suite.addTest(testcase(original,normalized))
 
     """ execute tests """

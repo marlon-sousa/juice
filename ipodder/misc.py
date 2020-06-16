@@ -69,16 +69,16 @@ def rename(old,new,backup=False):
     won't throw Errno 17.  Optionally backs up the new location
     if something is there."""
     if not os.path.exists(old):
-        raise Exception, "File %s doesn't exist" % old
+        raise Exception("File %s doesn't exist" % old)
     try:
         if backup:
             os.rename(new,"%s-%d" % (new,int(time.time())))
         else:
             os.remove(new)
-    except OSError, ex:
+    except OSError as ex:
         errno, message = ex.args
         if errno != 2: # ENOFILE
-            raise OSError, ex
+            raise OSError(ex)
 
     os.rename(old,new)
 
@@ -109,7 +109,7 @@ def unique(sequence):
     results = []
     resultmap = {}
     for item in sequence: 
-        if not resultmap.has_key(item): 
+        if item not in resultmap: 
             resultmap[item] = True
             results.append(item)
     return results
@@ -162,7 +162,7 @@ def coralize_url(url):
             return x
         
         c = C()
-        coral_url =  map(c.f, url.split("/"))
+        coral_url =  list(map(c.f, url.split("/")))
         sb = ""
         frst = True
         for i in coral_url:
@@ -187,11 +187,11 @@ class BasePcastProcessor(SGMLParser):
             type = None
             href = ""
             for (key,val) in attrs:
-		if key == 'rel': rel = val
-		if key == 'href': href = val
-		if key == 'type': type = val
+                if key == 'rel': rel = val
+                if key == 'href': href = val
+                if key == 'type': type = val
             if rel == 'feed' and type == 'application/rss+xml':
-               self.href = href
+                self.href = href
 
     def unknown_endtag(self, tag):
         self.tagstack.pop()
@@ -223,7 +223,7 @@ def encode(msg, encoding=None, replace=True, replacement=None):
     if encoding is None:
         encoding = locale_preferred_encoding
     if replace: 
-        if not isinstance(replace, basestring): 
+        if not isinstance(replace, str): 
             replace = 'replace'
         try: 
             msg = msg.encode(encoding, replace)
@@ -242,6 +242,6 @@ def encode(msg, encoding=None, replace=True, replacement=None):
 
 if __name__ == '__main__': 
     path = r'C:\Documents and Settings\aegrumet\Desktop\test.pcast'
-    print url_pcast_file_extract(path)
+    print((url_pcast_file_extract(path)))
 
     

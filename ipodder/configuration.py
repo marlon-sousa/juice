@@ -12,9 +12,9 @@ import sys
 import optparse
 
 # Parts of iPodder
-import players
-import feeds
-import hooks
+from . import players
+from . import feeds
+from . import hooks
 import contrib.portalocker as portalocker
 from gui.skin import PODCAST_DIRECTORY_ROOTS
 
@@ -329,11 +329,11 @@ class Configuration(object):
             
         if options.config_file: 
             config = self._loadconfig(options.config_file)
-            if config.has_key('appdata_dir'):
+            if 'appdata_dir' in config:
                 appdata = config['appdata_dir']
-            if config.has_key('gui_dir'):
+            if 'gui_dir' in config:
                 gui = config['gui_dir']
-            if config.has_key('download_dir'):
+            if 'download_dir' in config:
                 downloads = config['download_dir']
         else: 
             config = self._findconfig(paths)
@@ -358,7 +358,7 @@ class Configuration(object):
         # we wanted to change the default later. 
         vermin = [] # was ['podcast_directory_roots']
         for victim in vermin: 
-            if config.has_key(victim): 
+            if victim in config: 
                 log.warn("Eliminating %s from configuration file.", victim)
                 log.debug("(default is %s)", defaults[victim])
                 del config[victim]
@@ -367,7 +367,7 @@ class Configuration(object):
             
         # Copy in variables from the loaded configuration, defaulting to 
         # the defaults defined above. 
-        for key, default in defaults.items(): 
+        for key, default in list(defaults.items()): 
             if key == 'podcast_directory_roots': 
                 try: 
                     # Merge them in
@@ -379,7 +379,7 @@ class Configuration(object):
                     
                     # Do they refer to ANY of the default feeds?
                     for url, title in cfgval: 
-                        if rootdict.has_key(url): 
+                        if url in rootdict: 
                             break
                     else: 
                         # No: okay, we need to prepend ours
@@ -390,7 +390,7 @@ class Configuration(object):
                     # old ones mentioned in the configuration file. 
                     for url, title in cfgval: 
                         res.append((url, title))
-                        if rootdict.has_key(url): 
+                        if url in rootdict: 
                             if title != rootdict[url]: 
                                 log.debug("Title for default directory %s " \
                                           "over-ridden to %s", url, title)
@@ -411,7 +411,7 @@ class Configuration(object):
 
                     # Store the results. 
                     setattr(self, key, res)
-                except Exception, ex: 
+                except Exception as ex: 
                     log.exception("The user-specified podcast_directory_roots " \
                                   "option caused an exception, so we'll use " \
                                   "the default option instead.")
@@ -427,7 +427,7 @@ class Configuration(object):
         # Now, over-ride again with the command line options. 
         first = True
         self.masked_options = []
-        for att in configDefaults.keys(): 
+        for att in list(configDefaults.keys()): 
             if not hasattr(options, att): 
                 continue
             val = getattr(options, att)
@@ -448,9 +448,11 @@ class Configuration(object):
         if self.config_manager_enable:
             try:
                 self.load_remote_config()
-            except ConfigManagerConnectError, self.deferred_exception:
+            except ConfigManagerConnectError as xxx_todo_changeme:
+                self.deferred_exception = xxx_todo_changeme
                 pass
-            except ConfigManagerFirstRunError, self.deferred_exception:
+            except ConfigManagerFirstRunError as xxx_todo_changeme1:
+                self.deferred_exception = xxx_todo_changeme1
                 pass
             
         # ---- DO NOT INTERPRET ANY MORE OPTIONS BELOW THIS LINE ----
@@ -502,20 +504,20 @@ class Configuration(object):
             lfp = self.lockfilefp = file(lockfilename, 'wt')
             lfp.write("This is iPodder's lock file.")
             portalocker.lock(lfp, portalocker.LOCK_EX|portalocker.LOCK_NB)
-        except OverflowError, ex: 
+        except OverflowError as ex: 
             log.exception("I can't check to see if another iPodder is running.")
-        except Exception, ex:
+        except Exception as ex:
             running = True
             
         config = {}
         try: 
-            execfile(filename, {}, config)
-        except Exception, ex: 
+            exec(compile(open(filename, "rb").read(), filename, 'exec'), {}, config)
+        except Exception as ex: 
             log.exception("Caught exception loading config file %s", 
                     filename)
             sys.exit(1)
         log.info("Successfully loaded config file %s", filename)
-        for key, val in config.items(): 
+        for key, val in list(config.items()): 
             log.debug("%s = %s", key, val)
 
         if running:
@@ -554,8 +556,8 @@ class Configuration(object):
 
         #Looks like we have everything we need.  Time to try to connect.
         #TODO: add proxy support, figure out exception handling.
-        import xmlrpclib
-        s = xmlrpclib.Server(self.config_manager_url)
+        import xmlrpc.client
+        s = xmlrpc.client.Server(self.config_manager_url)
         try:
             r = s.ipodderConfigManager.getConfig(self.config_manager_username,\
                                           self.config_manager_password)
@@ -565,7 +567,7 @@ class Configuration(object):
 
         for key, default, exposed, remoteable in configOptions:
             if remoteable:
-                if r.has_key(key):
+                if key in r:
                     log.debug("load_remote_config: Setting remotable option %s = %s." % (key,str(r[key])))
                     setattr(self, key, r[key])
                 else:
@@ -582,12 +584,12 @@ class Configuration(object):
 
     def dump(self, handle=sys.stdout): 
         "Dump configuration to `handle`."
-        print >> handle, "# iPodder configuration file."
-        print >> handle, "# DO NOT MODIFY YOURSELF IF IPODDER IS RUNNING."
+        print("# iPodder configuration file.", file=handle)
+        print("# DO NOT MODIFY YOURSELF IF IPODDER IS RUNNING.", file=handle)
         for key, default, exposed, remoteable in configOptions:
             value = getattr(self, key)
             if exposed or value != default: 
-                print >> handle, "%s = %s" % (key, repr(value))
+                print("%s = %s" % (key, repr(value)), file=handle)
 
     def determine_player(self): 
         # Nut out the player. 
@@ -640,7 +642,7 @@ class Configuration(object):
                 player.set_play_command(self.clp_play_command)
             return player
         else: 
-            raise AttributeError, att
+            raise AttributeError(att)
 
     def upgrade_logic(self, from_version):
         """Run any upgrade logic that might be necessary."""
@@ -658,7 +660,7 @@ class Configuration(object):
         self.flush()
         
 if __name__ == '__main__': 
-    import conlogging
+    from . import conlogging
     # test code
     logging.basicConfig()
     handler = logging.StreamHandler()

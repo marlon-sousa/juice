@@ -31,8 +31,8 @@
 from constants import *
 
 import re
-import urllib
-import urllib2
+import urllib.request, urllib.parse, urllib.error
+import urllib.request, urllib.error, urllib.parse
 import logging
 import mimetypes
 
@@ -90,7 +90,7 @@ def _parsePage(pageContent):
             logging.warning("Could not parse item `%s` as it was `%s`." %
                             (name, value))
         else:
-            if itemsDict.has_key(name):
+            if name in itemsDict:
                 # This handles the case where a name key is used more than
                 # once (e.g. mail items, mail body) and automatically
                 # places the values into list.
@@ -153,14 +153,14 @@ class CookieJar:
         """
         request.add_header('Cookie',
                            ";".join(["%s=%s" % (k,v)
-                                     for k,v in self._cookies.items()]))
+                                     for k,v in list(self._cookies.items())]))
 
         
     
 def _buildURL(**kwargs):
     """
     """
-    return "%s?%s" % (URL_GMAIL, urllib.urlencode(kwargs))
+    return "%s?%s" % (URL_GMAIL, urllib.parse.urlencode(kwargs))
 
 
 
@@ -169,7 +169,7 @@ def _paramsToMime(params, filenames, files):
     """
     mimeMsg = MIMEMultipart("form-data")
 
-    for name, value in params.iteritems():
+    for name, value in list(params.items()):
         mimeItem = MIMEText(value)
         mimeItem.add_header("Content-Disposition", "form-data", name=name)
 
@@ -242,7 +242,7 @@ class GmailAccount:
     def login(self):
         """
         """
-        data = urllib.urlencode({'continue': URL_GMAIL,
+        data = urllib.parse.urlencode({'continue': URL_GMAIL,
                                  'service': 'mail',
                                  'Email': self.name,
                                  'Passwd': self._pw,
@@ -251,7 +251,7 @@ class GmailAccount:
         headers = {'Host': 'www.google.com',
                    'User-Agent': 'User-Agent: Mozilla/5.0 (compatible;)'}
 
-        req = urllib2.Request(URL_LOGIN, data=data, headers=headers)
+        req = urllib.request.Request(URL_LOGIN, data=data, headers=headers)
         pageData = self._retrievePage(req)
 
         # TODO: Tidy this up?
@@ -259,7 +259,7 @@ class GmailAccount:
         RE_PAGE_REDIRECT = 'top\.location\W=\W"CheckCookie\?continue=([^"]+)'
         # TODO: Catch more failure exceptions here...?
         try:
-            redirectURL = urllib.unquote(re.search(RE_PAGE_REDIRECT,
+            redirectURL = urllib.parse.unquote(re.search(RE_PAGE_REDIRECT,
                                                    pageData).group(1))
         except AttributeError:
             raise GmailLoginFailure
@@ -271,13 +271,13 @@ class GmailAccount:
     def _retrievePage(self, urlOrRequest):
         """
         """
-        if not isinstance(urlOrRequest, urllib2.Request):
-            req = urllib2.Request(urlOrRequest)
+        if not isinstance(urlOrRequest, urllib.request.Request):
+            req = urllib.request.Request(urlOrRequest)
         else:
             req = urlOrRequest
             
         self._cookieJar.setCookies(req)
-        resp = urllib2.urlopen(req)
+        resp = urllib.request.urlopen(req)
 
         pageData = resp.read()
 
@@ -516,11 +516,11 @@ class GmailAccount:
         contentTypeHeader, data = msgStr.split("\n\n", 1)
         contentTypeHeader = contentTypeHeader.split(":", 1)
         data = data.replace("\n", "\r\n")
-        for k,v in origPayloads.iteritems():
+        for k,v in list(origPayloads.items()):
             data = data.replace(FMT_MARKER % k, v)
         ####
         
-        req = urllib2.Request(_buildURL(search = "undefined"), data = data)
+        req = urllib.request.Request(_buildURL(search = "undefined"), data = data)
         req.add_header(*contentTypeHeader)
 
         items = self._parsePage(req)
@@ -793,56 +793,56 @@ if __name__ == "__main__":
     try:
         name = sys.argv[1]
     except IndexError:
-        name = raw_input("Gmail account name: ")
+        name = eval(input("Gmail account name: "))
         
     pw = getpass("Password: ")
 
     ga = GmailAccount(name, pw)
 
-    print "\nPlease wait, logging in..."
+    print("\nPlease wait, logging in...")
 
     try:
         ga.login()
     except GmailLoginFailure:
-        print "\nLogin failed. (Wrong username/password?)"
+        print("\nLogin failed. (Wrong username/password?)")
     else:
-        print "Login successful.\n"
+        print("Login successful.\n")
 
         # TODO: Use properties instead?
         quotaInfo = ga.getQuotaInfo()
         quotaMbUsed = quotaInfo[QU_SPACEUSED]
         quotaMbTotal = quotaInfo[QU_QUOTA]
         quotaPercent = quotaInfo[QU_PERCENT]
-        print "%s of %s used. (%s)\n" % (quotaMbUsed, quotaMbTotal, quotaPercent)
+        print(("%s of %s used. (%s)\n" % (quotaMbUsed, quotaMbTotal, quotaPercent)))
 
         searches = STANDARD_FOLDERS + ga.getLabelNames()
 
         while 1:
             try:
-                print "Select folder or label to list: (Ctrl-C to exit)"
+                print("Select folder or label to list: (Ctrl-C to exit)")
                 for optionId, optionName in enumerate(searches):
-                    print "  %d. %s" % (optionId, optionName)
+                    print(("  %d. %s" % (optionId, optionName)))
 
-                name = searches[int(raw_input("Choice: "))]
+                name = searches[int(eval(input("Choice: ")))]
 
                 if name in STANDARD_FOLDERS:
                     result = ga.getMessagesByFolder(name, True)
                 else:
                     result = ga.getMessagesByLabel(name, True)
 
-                print
+                print()
                 if len(result):
                     for thread in result:
-                        print
-                        print thread.id, len(thread), thread.subject
+                        print()
+                        print((thread.id, len(thread), thread.subject))
                         for msg in thread:
-                            print "  ", msg.id, msg.number, msg.subject
+                            print(("  ", msg.id, msg.number, msg.subject))
                             #print msg.source
                 else:
-                    print "No threads found in `%s`." % name
+                    print(("No threads found in `%s`." % name))
 
-                print
+                print()
             except KeyboardInterrupt:
                 break
             
-    print "\n\nDone."
+    print("\n\nDone.")

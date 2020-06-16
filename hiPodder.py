@@ -20,7 +20,7 @@ import threading
 import pythoncom
 import platform
 import webbrowser
-import StringIO
+import io
 import time
 
 import ipodder
@@ -236,7 +236,7 @@ class MainWindow:
             try:
                 self.ipodder.config.load_remote_config()
                 MessageBox(self.hwnd, "Login successful.", "Login successful.", win32con.MB_OK)
-            except configuration.ConfigManagerConnectError, ex:
+            except configuration.ConfigManagerConnectError as ex:
                 log.info("Got error: %s" % str(ex))
                 MessageBox(self.hwnd, str(ex).strip('"'), "Error connecting.", win32con.MB_OK)
                 self.OnSetup()
@@ -255,11 +255,11 @@ class MainWindow:
            self.ipodder.config.feedmanager_opml_url != '':
             opml_url = self.ipodder.config.feedmanager_opml_url
             
-            sio = StringIO.StringIO()
+            sio = io.StringIO()
             grabber = grabbers.BasicGrabber(opml_url, sio, politeness=0)
             try: 
                 grabber()
-            except grabbers.GrabError, ex: 
+            except grabbers.GrabError as ex: 
                 log.error("Can't grab %s: %s", url, ex.message)
                 return
 
@@ -347,9 +347,9 @@ def main():
     deferred_exception = None
     try:
         config = configuration.Configuration(options)
-    except configuration.ConfigManagerConnectError, ex:
+    except configuration.ConfigManagerConnectError as ex:
         deferred_exception = ex
-    except configuration.ConfigManagerFirstRunError, ex:
+    except configuration.ConfigManagerFirstRunError as ex:
         deferred_exception = ex
     if options.debug: # just in case config file over-rode it
         log.setLevel(logging.DEBUG)

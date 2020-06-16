@@ -4,9 +4,9 @@
 # - spotlight should work on al fields
 
 def OnPaste(self, event):
-    print self.OnPaste(event)
+    print((self.OnPaste(event)))
 
-import urlparse
+import urllib.parse
 import time
 
 def self_test(self, event):
@@ -17,7 +17,7 @@ STRIPE_ODD_COLOR = '#EDF3FE'
 STRIPE_EVEN_COLOR = '#FFFFFF'
         
 def trimurl(url): 
-    method, site, path, ign1, ign2 = urlparse.urlsplit(url)
+    method, site, path, ign1, ign2 = urllib.parse.urlsplit(url)
     sitesplit = site.split('.')
     if len(sitesplit) and sitesplit[0].startswith('www'): 
         site = '.'.join(sitesplit[1:])

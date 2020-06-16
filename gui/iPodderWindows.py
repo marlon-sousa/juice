@@ -80,11 +80,11 @@ class MainPanel(wx.Panel, listmix.ColumnSorterMixin):
             item2 = item2.lower()
 
         #i18n stuff crashes on mac
-	cmpVal = cmp(item1, item2)
+        cmpVal = cmp(item1, item2)
 
         # If the items are equal then pick something else to make the sort value unique
         if cmpVal == 0:
-            cmpVal = apply(cmp, self.GetSecondarySortValues(col, key1, key2))
+            cmpVal = cmp(*self.GetSecondarySortValues(col, key1, key2))
 
         if ascending:
             return cmpVal
@@ -283,7 +283,7 @@ class PrefsDialog(wx.Dialog):
             self.ADVANCED : "str_advanced"
         }
         en_loaded = False
-        for key in tabsdict.keys():
+        for key in list(tabsdict.keys()):
             try:
                 self.notebook.SetPageText(key, self._(tabsdict[key]))
             except AssertionError:
@@ -464,11 +464,11 @@ class PrefsDialog(wx.Dialog):
     def ResetPrefs(self):
         encoding = sys.getdefaultencoding()
         try:
-            if type(self.ipodder.config.download_dir) != type(u""):
-                unicode(self.ipodder.config.download_dir,encoding)
+            if type(self.ipodder.config.download_dir) != type(""):
+                str(self.ipodder.config.download_dir,encoding)
         except UnicodeDecodeError:
             encoding = self.gui.encodingdlg.ShowModal(self.ipodder.config.download_dir,encoding)
-            self.ipodder.config.download_dir = unicode(self.ipodder.config.download_dir,encoding)
+            self.ipodder.config.download_dir = str(self.ipodder.config.download_dir,encoding)
             self.ipodder.config.flush()
             
         self.hideOnStartup.SetValue(self.ipodder.config.hide_on_startup)
@@ -812,12 +812,12 @@ class EncodingDialog(wx.Dialog):
         self.testenc = testenc
         badbyte = self.badbyte(self.teststr, self.testenc)
         if badbyte == -1:
-            self.encodingtext.SetLabel(unicode(self.teststr,self.testenc,'replace'))
+            self.encodingtext.SetLabel(str(self.teststr,self.testenc,'replace'))
             self.encodingok.Enable(True)
         else:            
             format = "%%s\n%%%ds" % (badbyte+2)
             self.encodingtext.SetLabel(format %
-                (unicode(self.teststr,self.testenc,'replace'),"^^^"))
+                (str(self.teststr,self.testenc,'replace'),"^^^"))
             self.encodingok.Enable(False)
         self.GetSizer().Fit(self)
 
@@ -833,7 +833,7 @@ class EncodingDialog(wx.Dialog):
         i=0
         for c in teststr:
             try:
-                unicode(c,testenc)
+                str(c,testenc)
                 i += 1
             except UnicodeDecodeError:
                 return i

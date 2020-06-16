@@ -72,7 +72,7 @@ class HookCollection(object):
     
     def __call__(self, hookCategory, *arguments, **keywordArguments): 
         "Call all hooks in the sequence for the given category."
-        if not self.hooksByCategory.has_key(hookCategory): 
+        if hookCategory not in self.hooksByCategory: 
             return
         #log.debug("Calling all hooks in %s.%s", 
         #          repr(self), repr(hookCategory))

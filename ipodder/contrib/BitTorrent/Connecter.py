@@ -1,12 +1,12 @@
 # Written by Bram Cohen
 # see LICENSE.txt for license information
 
-from bitfield import Bitfield
+from .bitfield import Bitfield
 from binascii import b2a_hex
-from CurrentRateMeasure import Measure
+from .CurrentRateMeasure import Measure
 
 def toint(s):
-    return long(b2a_hex(s), 16)
+    return int(b2a_hex(s), 16)
 
 def tobinary(i):
     return (chr(i >> 24) + chr((i >> 16) & 0xFF) + 
@@ -112,7 +112,7 @@ class Connecter:
         while not self.rate_capped:
             up = None
             minrate = None
-            for i in self.connections.values():
+            for i in list(self.connections.values()):
                 if not i.upload.is_choked() and i.upload.has_queries() and i.connection.is_flushed():
                     rate = i.upload.get_rate()
                     if up is None or rate < minrate:
@@ -217,7 +217,7 @@ class Connecter:
                 connection.close()
                 return
             if c.download.got_piece(i, toint(message[5:9]), message[9:]):
-                for co in self.connections.values():
+                for co in list(self.connections.values()):
                     co.send_have(i)
         else:
             connection.close()

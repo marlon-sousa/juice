@@ -74,7 +74,7 @@ elif os.name =='posix':
 if __name__ == '__main__':
     from time import time, strftime, localtime
     import sys
-    import portalocker
+    from . import portalocker
 
     log = open('log.txt', "a+")
     portalocker.lock(log, portalocker.LOCK_EX|portalocker.LOCK_NB)
@@ -82,7 +82,7 @@ if __name__ == '__main__':
     timestamp = strftime("%m/%d/%Y %H:%M:%S\n", localtime(time()))
     log.write( timestamp )
 
-    print "Wrote lines. Hit enter to release lock."
+    print("Wrote lines. Hit enter to release lock.")
     dummy = sys.stdin.readline()
 
     log.close()

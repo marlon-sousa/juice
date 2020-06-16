@@ -34,7 +34,7 @@ def AddStrings(strtable):
     add("str_dltab_ul_speed", "Upload snelheid: ")
     add("str_dltab_dl_speed", "Download snelheid: ")
 
-    add("str_error_checking_new_version", u"Helaas was er een storing terwijl er een controle voor een nieuwe versie werd gedaan. Probeert u het later nog een keer alstublieft.")
+    add("str_error_checking_new_version", "Helaas was er een storing terwijl er een controle voor een nieuwe versie werd gedaan. Probeert u het later nog een keer alstublieft.")
     add("str_hours", "uren")
     add("str_minutes", "minuten")
 

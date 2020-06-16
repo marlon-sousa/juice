@@ -6,12 +6,12 @@ import os
 import sys
 import stat
 import logging
-import urlparse
-import urllib
+import urllib.parse
+import urllib.request, urllib.parse, urllib.error
 import re
 import time
 from datetime import datetime
-import misc
+from . import misc
 
 from ipodder.contrib import bloglines
 from ipodder.contrib import urlnorm
@@ -33,10 +33,10 @@ def urlrstrip(url):
     "Strip nasty things from the trailing end of a URL."
     while url[-3:] in ['%00', '%20']: 
         url = url[:-3]
-    scheme, addr, path, query, fragid = urlparse.urlsplit(url)
+    scheme, addr, path, query, fragid = urllib.parse.urlsplit(url)
     while path and ord(path[-1:]) <= 32:
         path = path[:-1]
-    return urlparse.urlunsplit((scheme, addr, path, query, fragid))
+    return urllib.parse.urlunsplit((scheme, addr, path, query, fragid))
 
 class Normalizer(object): 
     """Class to normalize URLs."""
@@ -133,7 +133,7 @@ class Feed(object):
             # whether or not to download enclosures automatically
             'autofetch_enclosures': True,
             }
-        for att, value in defaults.items(): 
+        for att, value in list(defaults.items()): 
             if not hasattr(self, att): 
                 info("Defaulting missing attribute %s to %s.", 
                       repr(att), repr(value))
@@ -142,7 +142,7 @@ class Feed(object):
             info("Replacing old 'name' attribute with 'title'.")
             self.title = self.name
             del self.name
-        if isinstance(self.dirname,basestring) and self.dirname.startswith(' '):
+        if isinstance(self.dirname,str) and self.dirname.startswith(' '):
             info("Stripping spaces off self.dirname")
             self.dirname = self.dirname.strip()
         strippedurl = urlrstrip(self.url)
@@ -153,7 +153,7 @@ class Feed(object):
             info("Fixing feed with trailing control characters or whitespace.")
             self.url = strippedurl
         # strip out old normurl attributes
-        if self.__dict__.has_key('normurl'): 
+        if 'normurl' in self.__dict__: 
             del self.__dict__['normurl']
         # Do NOT helpfully flush changes. It'll lead to massive duplication. 
         
@@ -166,14 +166,14 @@ class Feed(object):
         
     def __str__(self): 
         "Convert a Feed into a string: use its name."
-        return unicode(self).encode('ascii', 'replace')
+        return str(self).encode('ascii', 'replace')
 
     def __unicode__(self): 
         "Return a Unicode title for a feed."
         if self.title: 
-            return unicode(self.title)
+            return str(self.title)
         else: 
-            return unicode("Feed ID %d at %s" % (self.id, self.url))
+            return str("Feed ID %d at %s" % (self.id, self.url))
         
 
     def __int__(self): 
@@ -204,7 +204,7 @@ class Feed(object):
             files = [f for f in files if os.path.isfile(f)]
             bytes = sum([os.stat(f)[stat.ST_SIZE] for f in files])
             return float(bytes) / (1024.0*1024.0)
-        except OSError, ex: 
+        except OSError as ex: 
            errno, message = ex.args
            if errno == 3: # ESRCH, directory not found 
                return 0.0
@@ -247,17 +247,17 @@ class Feed(object):
     def _get_target_filename(url): 
         """get_target_filename's complicated guts, presented for ease of 
         testing."""
-        scheme, netloc, path, args, fragment = urlparse.urlsplit(url)
+        scheme, netloc, path, args, fragment = urllib.parse.urlsplit(url)
         # force to unicode here, otherwise unquote and friends can go bad
-        filename = unicode(re.split(r'\/|\\', path)[-1]) # take the last fragment
+        filename = str(re.split(r'\/|\\', path)[-1]) # take the last fragment
         if '%' in filename: # FeedBurner-embedded URL? 
-            filename = urllib.unquote(filename)
+            filename = urllib.parse.unquote(filename)
         # TODO: note that this does not guarantee that filename contains a
         # TODO: string suitable for use in the local filesystem.
         if args:  # Merge them back in, in safe form
-            args = unicode(args)
+            args = str(args)
             if '%' in args:
-                args = urllib.unquote(args)
+                args = urllib.parse.unquote(args)
             args = re.sub("[^A-Za-z0-9]","_",args)
             base, ext = os.path.splitext(filename)
             filename = "%s_%s%s" % (base, args, ext)
@@ -306,7 +306,7 @@ class Feed(object):
             return (True, path)
 
         # match, uh, weirdly
-        path2 = os.path.join(self.feeds.config.download_dir, self.dirname, urllib.url2pathname(filename))
+        path2 = os.path.join(self.feeds.config.download_dir, self.dirname, urllib.request.url2pathname(filename))
         if os.path.isfile(path2):
             return (True, path2)
 
@@ -367,7 +367,7 @@ class Feeds(feedmanager.ManagedFeeds):
         # Just in case, make sure we avoid collisions. 
         while True: 
             feedkey = mkfeedkey(feedid)
-            if state.has_key(feedkey): 
+            if feedkey in state: 
                 feedid = feedid + 1
             else: 
                 break
@@ -378,7 +378,7 @@ class Feeds(feedmanager.ManagedFeeds):
         return self.has_feed_normurl(urlnorm.normalize(url))
 
     def has_feed_normurl(self, normurl):
-        return self.feeds_by_normalized_url.has_key(normurl)
+        return normurl in self.feeds_by_normalized_url
 
     def __getitem__(self, key): 
         """Retrieve a feed."""
@@ -387,7 +387,7 @@ class Feeds(feedmanager.ManagedFeeds):
                 if feed.id == key: 
                     return feed
             else: 
-                raise KeyError, key
+                raise KeyError(key)
         else: 
             normurl = urlnorm.normalize(key)
             return self.feeds_by_normalized_url[normurl]
@@ -416,7 +416,7 @@ class Feeds(feedmanager.ManagedFeeds):
             if quiet: 
                 return None
             else: 
-                raise DuplicateFeedUrl, match
+                raise DuplicateFeedUrl(match)
         else: 
             self.feeds_by_normalized_url[feed.normurl] = feed
         self.write_feed_to_state(feed)
@@ -450,7 +450,7 @@ class Feeds(feedmanager.ManagedFeeds):
         feeds_by_normalized_url = self.feeds_by_normalized_url
         feedcount = 0
         delfeeds = []
-        feedkeys = [key for key in state.keys() if key[:5] == 'feed#']
+        feedkeys = [key for key in list(state.keys()) if key[:5] == 'feed#']
         goodfeeds = []
         for key in feedkeys:
             feed = state[key] # will fail on pickle problem
@@ -462,7 +462,7 @@ class Feeds(feedmanager.ManagedFeeds):
                 continue
             goodfeeds.append(feed)
         feedidmap = dict([(feed.id, feed) for feed in goodfeeds])
-        feedids = feedidmap.keys()
+        feedids = list(feedidmap.keys())
         feedids.sort()
         for feedid in feedids: 
             feed = feedidmap[feedid]
@@ -517,10 +517,10 @@ class Feeds(feedmanager.ManagedFeeds):
                     self.addfeed(url, sub_state=sub_state)
                     log.info("Added from favorites file: %s", url)
                     feedcount = feedcount + 1
-                except DuplicateFeedUrl, ex: 
+                except DuplicateFeedUrl as ex: 
                     pass # log.debug("Skipping known feed %s", url)
             feeds.close()
-        except (IOError, OSError), ex: 
+        except (IOError, OSError) as ex: 
             errno, message = ex.args
             if errno == 2: # ENOFILE
                 log.debug("... but it doesn't exist. Oops.")
@@ -598,7 +598,7 @@ class Feeds(feedmanager.ManagedFeeds):
                     self.addfeed(url, sub_state='newly-subscribed')
                     log.info("Added from Bloglines: %s", url)
                     newfeeds = newfeeds + 1
-                except DuplicateFeedUrl, ex: 
+                except DuplicateFeedUrl as ex: 
                     log.debug("Skipping known feed %s", url)
             if not blfeeds:
                 log.error("Couldn't see anything in Bloglines. Either your "\
@@ -609,7 +609,7 @@ class Feeds(feedmanager.ManagedFeeds):
                       "folder %s doesn't exist.", self.config.bl_folder)
         except KeyboardInterrupt: 
             raise
-        except bloglines.urllib2.HTTPError, ex: 
+        except bloglines.urllib2.HTTPError as ex: 
             log.debug("%s", repr(ex.__dict__))
             if ex.code == 401:
                 log.error("Can't access Bloglines: authentication failure.")
@@ -715,10 +715,10 @@ class Feeds(feedmanager.ManagedFeeds):
                 if feed.sub_state in ('disabled',): 
                     continue
                 try: 
-                    print >> favorites, "# %s" % feed
-                except UnicodeEncodeError, ex: 
+                    print("# %s" % feed, file=favorites)
+                except UnicodeEncodeError as ex: 
                     pass # simplistic, but it'll work
-                print >> favorites, feed.url
+                print(feed.url, file=favorites)
             favorites.close()
             log.info("Wrote %d entries to %s", len(self._members), filename)
         except (IOError, OSError): 
@@ -787,7 +787,7 @@ class Feeds(feedmanager.ManagedFeeds):
         "Delete now-obsolete state keys." 
         state = self.state
         first = True
-        for key in state.iterkeys(): 
+        for key in state.keys(): 
             if key[:5] == 'feed-': 
                 if first: 
                     first = False
@@ -830,9 +830,9 @@ class Feeds(feedmanager.ManagedFeeds):
         least until one of us writes a better password manager."""
         for feed in self._members:
             if feed.username and feed.password:
-                import urlparse
-                p = urlparse.urlsplit(feed.url)
-                url = urlparse.urlunsplit([p[0],p[1],'/','',''])
+                import urllib.parse
+                p = urllib.parse.urlsplit(feed.url)
+                url = urllib.parse.urlunsplit([p[0],p[1],'/','',''])
                 BasicGrabber.shared_password_mgr.add_password(None, url, \
                     feed.username, feed.password)
 
@@ -842,7 +842,7 @@ if __name__ == '__main__':
     import pickle
     from ipodder import conlogging, configuration
     import ipodder.state
-    import dbhash
+    import dbm.bsd
     logging.basicConfig()
     handler = logging.StreamHandler()
     handler.formatter = conlogging.ConsoleFormatter("%(message)s", wrap=False)
@@ -856,8 +856,8 @@ if __name__ == '__main__':
     config = configuration.Configuration(options)
     if 1: 
         log.info("Checking we can unpickle everything...")
-        state = dbhash.open(config.state_db_file, 'w')
-        keys = state.keys()
+        state = dbm.bsd.open(config.state_db_file, 'w')
+        keys = list(state.keys())
         for key in keys:
             if key == "tmp_downloads":
                 #don't unpickle me unless Feeds has been instantiated.
@@ -872,7 +872,7 @@ if __name__ == '__main__':
             """
             try: 
                 value = state[key]
-            except KeyError, ex: 
+            except KeyError as ex: 
                 log.error("Database corruption on key %s", repr(key))
                 state[key] = ''
                 del state[key]
@@ -881,9 +881,9 @@ if __name__ == '__main__':
                 delete = False
                 try: 
                     item = pickle.loads(value)
-                except (IndexError, KeyError, EOFError), ex: 
+                except (IndexError, KeyError, EOFError) as ex: 
                     delete = True
-                except TypeError, ex: 
+                except TypeError as ex: 
                     if ex.args: 
                         if 'null bytes' in ex.args[0]: 
                             delete = True
@@ -903,13 +903,13 @@ if __name__ == '__main__':
 
     if 0: 
         for feed in feeds: 
-            print str(feed)
+            print(str(feed))
             atts = [att for att in dir(feed) 
                     if att[:1] != '_' 
                     and not att in ['feeds']
                     and not isinstance(getattr(feed, att), types.MethodType)]
             atts.sort()
             for att in atts: 
-                print "  %s = %s" % (att, repr(getattr(feed, att)))
+                print("  %s = %s" % (att, repr(getattr(feed, att))))
     if 1: 
         feeds.write_to_opml_file('feeds.opml')

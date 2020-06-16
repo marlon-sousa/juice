@@ -84,23 +84,23 @@ class StringTable:
             translations.AddStrings(self)
                
         def AddText(self, language, label, text):
-            if (self.m_string_table[language].has_key(label)):
+            if (label in self.m_string_table[language]):
                 # label exsists hence ignored."
                 pass
             else:
                 self.m_string_table[language][label]=text
             
         def GetText(self, language, label, args=None):
-            if self.m_string_table[language].has_key(label):
+            if label in self.m_string_table[language]:
                 if args:
                     return self.m_string_table[language][label] % args
                 else:
                     return self.m_string_table[language][label]
             else:               
                 # can't find the label defaulting to English
-                if not self.m_string_table['en'].has_key(label):
+                if label not in self.m_string_table['en']:
                     self.LoadLanguage('en')
-                if self.m_string_table['en'].has_key(label):
+                if label in self.m_string_table['en']:
                     if args:
                         return self.m_string_table['en'][label] % args
                     else:
@@ -148,7 +148,7 @@ class XRCEventHandler(handler.ContentHandler):
         self.m_xrc += ch
                       
 def parse_xml_gui():
-    import StringIO
+    import io
     xml_xrc = ""
     xrc = open("./gui/iPodderFeed.xrc", "r")
     for line in xrc:
@@ -157,32 +157,32 @@ def parse_xml_gui():
     parser = make_parser()
     result = XRCEventHandler()
     parser.setContentHandler(result)
-    io_xml_xrc = StringIO.StringIO(xml_xrc)
+    io_xml_xrc = io.StringIO(xml_xrc)
     parser.parse(io_xml_xrc)
         
     str_table = StringTable();
     
     for language in str_table.m_languages:
         for text in result.m_labels:
-            print "s1.AddText(" + language + ", \"str_" + text.lower() + "\", \"" +  text + "\")";
+            print(("s1.AddText(" + language + ", \"str_" + text.lower() + "\", \"" +  text + "\")"));
      
 def unittest():
-    print "unit test"
+    print("unit test")
     strt = StringTable()
-    print "--------------"
-    print strt.GetText(ENGLISH, "str_license_gpl")
-    print "--------------"
-    print strt.GetText(DUTCH, "str_license_gpl")
-    print "--------------"
-    print strt.GetText(FRENCH, "str_license_gpl")
-    print "--------------"
-    print strt.GetText(GERMAN, "str_license_gpl")
-    print "--------------"
-    print strt.GetText(ITALIAN, "str_license_gpl")
-    print "--------------"
-    print strt.GetText(SPANISH, "str_license_gpl")
-    print "--------------"
-    print strt.GetText(BRAZILIANPORTUGUESE, "str_license_gpl")
+    print("--------------")
+    print((strt.GetText(ENGLISH, "str_license_gpl")))
+    print("--------------")
+    print((strt.GetText(DUTCH, "str_license_gpl")))
+    print("--------------")
+    print((strt.GetText(FRENCH, "str_license_gpl")))
+    print("--------------")
+    print((strt.GetText(GERMAN, "str_license_gpl")))
+    print("--------------")
+    print((strt.GetText(ITALIAN, "str_license_gpl")))
+    print("--------------")
+    print((strt.GetText(SPANISH, "str_license_gpl")))
+    print("--------------")
+    print((strt.GetText(BRAZILIANPORTUGUESE, "str_license_gpl")))
        
 if __name__ == '__main__':
     unittest();

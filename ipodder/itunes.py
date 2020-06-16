@@ -1,13 +1,13 @@
 from sgmllib import SGMLParser
-import grabbers
-import StringIO
+from . import grabbers
+import io
 import re
-import urllib2,httplib
+import urllib.request, urllib.error, urllib.parse,http.client
 
 class ITMSHandler(urllib2.AbstractHTTPHandler):
 
     def itms_open(self, req):
-        return self.do_open(httplib.HTTP, req)
+        return self.do_open(http.client.HTTP, req)
 
 # Code for extracting feedURLs out of itms xml.
 class BaseItmsProcessor(SGMLParser):
@@ -43,7 +43,7 @@ def feedurl_from_itunes_url(itunes_url):
     if not itunes_url_p(itunes_url):
         return None
 
-    sio = StringIO.StringIO()
+    sio = io.StringIO()
     grabber = grabbers.BasicGrabber(itunes_url,sio)
     grabber()
     
@@ -58,7 +58,7 @@ def feedurl_from_itunes_url(itunes_url):
     if not itms_url:
         return None
 
-    sio = StringIO.StringIO()
+    sio = io.StringIO()
     grabber = grabbers.BasicGrabber(itms_url,sio)
     grabber()
     p = BaseItmsProcessor()
@@ -69,6 +69,6 @@ def feedurl_from_itunes_url(itunes_url):
 if __name__ == '__main__': 
     try:
         result = feedurl_from_itunes_url('http://phobos.apple.com/WebObjects/MZStore.woa/wa/viewPodcast?id=73797923&s=143441')
-        print result
-    except grabbers.GrabError, ex:
-        print ex[1]
+        print(result)
+    except grabbers.GrabError as ex:
+        print((ex[1]))

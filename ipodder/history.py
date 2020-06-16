@@ -19,7 +19,7 @@ def mkurlkey(url):
     # in non-English locales
     try:
         urlhash = hashlib.md5(url).hexdigest()
-    except UnicodeError, ue:
+    except UnicodeError as ue:
         urlhash = hashlib.md5(misc.encode(url,'utf8')).hexdigest()
     return "url:%s" % urlhash
 
@@ -29,7 +29,7 @@ def mkguidkey(guid, index):
     # in non-English locales
     try:
         guidhash = hashlib.md5(guid).hexdigest()
-    except UnicodeError, ue:
+    except UnicodeError as ue:
         guidhash = hashlib.md5(misc.encode(guid,'utf8')).hexdigest()
 
     return "guid:%d:%s" % (index,guidhash)
@@ -43,7 +43,7 @@ def mkfilenamekey(filename):
     # in non-English locales.
     try:
         filenamehash = hashlib.md5(misc.encode(filename, 'ascii', replace='xmlcharrefreplace')).hexdigest()
-    except UnicodeError, ue:
+    except UnicodeError as ue:
         filenamehash = hashlib.md5(misc.encode(filename, 'utf8', replace='xmlcharrefreplace')).hexdigest()
     return 'filename:%s' % filenamehash    
 
@@ -86,7 +86,7 @@ class HistoryDb(threads.SelfLogger):
         self.__shelf = dbshelve.open("history.db", 
                                      'c', dbenv=env)
         self.debug("History database opened with %d entries.", 
-                  len(self.keys()))
+                  len(list(self.keys())))
 
     def close(self): 
         """Close our shelf carefully."""
@@ -123,7 +123,7 @@ class HistoryDb(threads.SelfLogger):
                 try: 
                     idb.verify(filename)
                     idb.close()
-                except bsddb._db.DBVerifyBadError, ex: 
+                except bsddb._db.DBVerifyBadError as ex: 
                     log.exception("Database verification failed.")
                     should_salvage = True
             except: 
@@ -155,7 +155,7 @@ class HistoryDb(threads.SelfLogger):
                 #We don't actually do anything with that data yet but
                 #it's nice to have a backup.
                 idb.verify(filename, outfile=recovery, flags=db.DB_SALVAGE)
-            except bsddb._db.DBVerifyBadError, ex: 
+            except bsddb._db.DBVerifyBadError as ex: 
                 pass
             idb.close()
             os.unlink(filename) #worst case, we lose history and start fresh.
@@ -163,7 +163,7 @@ class HistoryDb(threads.SelfLogger):
             cdb.open(corrupt) #but we'll try to open the old, corrupt db and copy its keys.
             rdb = db.DB()
             rdb.open(filename, dbtype=db.DB_HASH, flags=db.DB_CREATE)
-            keys = cdb.keys()
+            keys = list(cdb.keys())
             goodkeys = []
             for key in keys:
                 try: 
@@ -207,14 +207,14 @@ class HistoryDb(threads.SelfLogger):
     def keys(self): 
         try: 
             self._acquire()
-            return self.__shelf.keys()
+            return list(self.__shelf.keys())
         finally:
             self._release()
 
     def __len__(self): 
         try: 
             self._acquire()
-            return len(self.__shelf.keys())
+            return len(list(self.__shelf.keys()))
         finally:
             self._release()
 
@@ -228,21 +228,21 @@ class HistoryDb(threads.SelfLogger):
     def has_key(self, key):
         try: 
             self._acquire()
-            return self.__shelf.has_key(key)
+            return key in self.__shelf
         finally:
             self._release()
 
     def iterkeys(self): 
         try: 
             self._acquire()
-            return self.__shelf.iterkeys()
+            return iter(list(self.__shelf.keys()))
         finally:
             self._release()
 
     def next_enclosure_id(self):
         try: 
             self._acquire()
-            if self.__shelf.has_key('last_enclosure_id'):
+            if 'last_enclosure_id' in self.__shelf:
                 last_enclosure_id = self.__shelf['last_enclosure_id']
             else:
                 last_enclosure_id = 0
@@ -262,7 +262,7 @@ class HistoryDb(threads.SelfLogger):
         try: 
             self._acquire()
 
-            if self.__shelf.has_key(urlkey):
+            if urlkey in self.__shelf:
                 dict = self.__shelf[urlkey]
                 dict[urlval[0]] = urlval[1]
                 self.__shelf[urlkey] = dict
@@ -281,7 +281,7 @@ class HistoryDb(threads.SelfLogger):
         try: 
             self._acquire()
 
-            if not self.__shelf.has_key(enclosurekey):
+            if enclosurekey not in self.__shelf:
                 self.error("Enclosure not found for key: %s", enclosurekey)
                 return
             
@@ -298,7 +298,7 @@ class HistoryDb(threads.SelfLogger):
     def update_enclosure_status(self, enclosurekey, status, marked):
         try: 
             self._acquire()
-            if self.__shelf.has_key(enclosurekey):
+            if enclosurekey in self.__shelf:
                 enclosureval = self.__shelf[enclosurekey]
                 local = enclosureval['local']
                 local['status'] = status
@@ -311,7 +311,7 @@ class HistoryDb(threads.SelfLogger):
         try: 
             self._acquire()
 
-            if not self.__shelf.has_key(feedkey):
+            if feedkey not in self.__shelf:
                 self.__shelf[feedkey] = (tsval,live_enc_ids,live_enc_ids)
             else:
                 (old_tsval,old_live_enc_ids,all_enc_ids) = self.__shelf[feedkey]
@@ -321,7 +321,7 @@ class HistoryDb(threads.SelfLogger):
                 self.__shelf[feedkey] = (tsval,live_enc_ids,all_enc_ids)
                 self.debug("All enclosures for feedkey %s: %s", feedkey, all_enc_ids)
 
-            if not self.__shelf.has_key('feeds_index'):
+            if 'feeds_index' not in self.__shelf:
                 self.__shelf['feeds_index'] = [feedkey]
             else:
                 feeds_index = self.__shelf['feeds_index']
@@ -342,7 +342,7 @@ class HistoryDb(threads.SelfLogger):
             
             self.debug("clean_enclosure_history: id = %d", enc_id)
             enclosurekey = mkenclosurekey(enc_id)
-            if not self.__shelf.has_key(enclosurekey):
+            if enclosurekey not in self.__shelf:
                 return
             
             enclosureval = self.__shelf[enclosurekey]
@@ -366,7 +366,7 @@ class HistoryDb(threads.SelfLogger):
                 return
             urlkey = mkurlkey(url)
             urldict = None
-            if self.__shelf.has_key(urlkey):
+            if urlkey in self.__shelf:
                 urldict = self.__shelf[urlkey]
 
             guid = entry.get('id')
@@ -379,7 +379,7 @@ class HistoryDb(threads.SelfLogger):
                 except KeyError:
                     pass
                 
-                if urldict != None and urldict.has_key(guid):
+                if urldict != None and guid in urldict:
                     self.debug("clean_enclosure_history: attempting to remove urldict history key for guid = %s", guid)
                     del urldict[guid]
                         
@@ -400,7 +400,7 @@ class HistoryDb(threads.SelfLogger):
             self._acquire()
 
             #Determine threshold enclosure id from timestamps.
-            if not self.__shelf.has_key('last_enclosure_id'):
+            if 'last_enclosure_id' not in self.__shelf:
                 #We have no history!
                 return
 
@@ -408,7 +408,7 @@ class HistoryDb(threads.SelfLogger):
             threshold_id = (last_enclosure_id/50)*50
             while threshold_id > 0:
                 tskey = "timestamp:%d" % threshold_id
-                if self.__shelf.has_key(tskey):
+                if tskey in self.__shelf:
                     tsval = self.__shelf[tskey]
                     if isinstance(tsval,time.struct_time):
                         tsval = time.mktime(tsval) #support initial tstruct impl
@@ -419,10 +419,10 @@ class HistoryDb(threads.SelfLogger):
             self.debug("clean_history: threshold id for %d days = %d", max_age, threshold_id)
         
             #Troll for old enclosures.
-            if self.__shelf.has_key('feeds_index'):
+            if 'feeds_index' in self.__shelf:
                 feeds_index = self.__shelf['feeds_index']
                 for feedkey in feeds_index:
-                    if self.__shelf.has_key(feedkey):
+                    if feedkey in self.__shelf:
                         (tsval,live_enc_ids,all_enc_ids) = self.__shelf[feedkey]
                         removed_enc_ids = []
                         for enc_id in all_enc_ids:
@@ -501,7 +501,7 @@ class History(object):
 
         thin_entry = {}
         for key in ['title','link','description','id','modified_parsed']:
-            if entry.has_key(key):
+            if key in entry:
                 thin_entry[key] = entry[key]
                 
         #Compare disk usage with more compact data.
@@ -538,7 +538,7 @@ class History(object):
 
         try:
             historyfile = open(self.config.history_file, 'r')
-        except IOError, ex:
+        except IOError as ex:
             errno, args = ex.args
             if errno != 2:
                 log.exception("Unexpected exception opening history file.")
@@ -546,7 +546,7 @@ class History(object):
         try:
             entries = [entry.rstrip() for entry in historyfile]
             historyfile.close()
-        except IOError, ex:
+        except IOError as ex:
             log.exception("Unexpected exception reading history file.")
             return
         log.debug("Absorbing %d entries from the history file.", len(entries))
@@ -583,7 +583,7 @@ class History(object):
         urlkey = mkurlkey(url) 
 
         # If we find the URL key, use it to retrieve the "URL record". 
-        if self.db.has_key(urlkey): 
+        if urlkey in self.db: 
             # If we have an enclosure guid, we use it to look for the 
             # "enclosure key", either one that matches the guid or, if 
             # none does, the "topmost" one (which, for a dict, is un-
@@ -591,7 +591,7 @@ class History(object):
             log.debug("Found key for url: %s" % url)
             urlrec = self.db[urlkey]
             if guid:
-                if urlrec.has_key(guid):
+                if guid in urlrec:
                     log.debug("Found enclosure matching guid: %s" % guid)
                     enclosurekey = urlrec[guid]
                 else:
@@ -600,7 +600,7 @@ class History(object):
                     # an enclosure key. 
             else:
                 log.debug("No guid available for this url.")
-                enclosurekey = urlrec.values()[0]
+                enclosurekey = list(urlrec.values())[0]
         # If not, but at least we have a guid...
         elif guid:
             # Make a guid key given the guid and enclosure index, and... 
@@ -608,7 +608,7 @@ class History(object):
             # Look for it in the database. I THINK this means that if someone 
             # changes how many enclosures are in each entry, we could miss 
             # spotting a match. 
-            if self.db.has_key(guidkey):
+            if guidkey in self.db:
                 log.debug("""Warning: new enclosure url at %s matches guid %s.
                 Assuming the podcaster moved hosts or changed the URL. 
                 If this is not the case, please contact the podcaster and ask
@@ -616,11 +616,11 @@ class History(object):
                 enclosurekey = self.db[guidkey]
 
         enclosureval = None
-        if enclosurekey and self.db.has_key(enclosurekey):
+        if enclosurekey and enclosurekey in self.db:
             log.debug("Matched enclosure key: %s" % enclosurekey)
             enclosureval = self.db[enclosurekey]
-            print enclosureval.keys()
-            print dir(enclosureval)
+            print((list(enclosureval.keys())))
+            print((dir(enclosureval)))
             if enclosureval['enclosure'].get('url') is None: 
                 log.warn("Fetched record had url=None. Asking for re-creation...")
                 enclosureval = None
@@ -669,21 +669,21 @@ class History(object):
         
         try: 
             length = int(enclosure.get('length', -1))
-        except ValueError, ex: 
+        except ValueError as ex: 
             length = -1
 
         #Get the enclosing item's title for displaying in the UI
         item_title = url
-        if entry.has_key('title'):
+        if 'title' in entry:
             #Unicode issues?
             item_title = entry['title']
 
         item_description = ""
-        if entry.has_key('description'):
+        if 'description' in entry:
             item_description = entry['description']
 
         item_link = ""
-        if entry.has_key('link'):
+        if 'link' in entry:
             item_link = entry['link']
 
         status = local['status']
@@ -709,7 +709,7 @@ class History(object):
     def remove_files(self,files):
         for file in files:
             filenamekey = mkfilenamekey(file)
-            if self.db.has_key(filenamekey):
+            if filenamekey in self.db:
                 enclosurekey = self.db[filenamekey]
                 self.db.update_enclosure_status(enclosurekey,'removed',False)
 
@@ -748,12 +748,12 @@ class History(object):
         if not isinstance(feed, int): 
             feed = feed.id
         if rescan or not hasattr(self, '_history_scanned_enc_map'): 
-            enc_keys = [k for k in self.db.keys() if k.startswith('enclosure:')]
+            enc_keys = [k for k in list(self.db.keys()) if k.startswith('enclosure:')]
             enc_map = {}
             for key in enc_keys: 
                 val = self.db[key]
                 enc_map.setdefault(val['local']['feed_id'], []).append(val)
-            for enc_list in enc_map.values(): 
+            for enc_list in list(enc_map.values()): 
                 enc_list.sort(lambda x, y: cmp(x['local']['creation_time'], y['local']['creation_time']))
             self._history_scanned_enc_map = enc_map
         else: 
@@ -776,7 +776,7 @@ if __name__ == '__main__':
     from ipodder import conlogging, configuration, hooks
     from ipodder.core import iPodder
     import ipodder.state
-    import dbhash
+    import dbm.bsd
     import pprint
     
     logging.basicConfig()

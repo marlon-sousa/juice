@@ -6,7 +6,7 @@ import platform
 import os
 import logging
 import re
-import misc
+from . import misc
 
 if "Win" in platform.system():
     import win32com.client
@@ -353,14 +353,14 @@ class iTunesForWindows(Player):
             # with AttributeError if __iTunes is None or if the 
             # connection has broken for whatever reason. 
             self.__iTunes.Version
-        except (AttributeError, win32com.client.pythoncom.com_error), ex: 
+        except (AttributeError, win32com.client.pythoncom.com_error) as ex: 
             try: 
                 iface = "iTunes.Application"
                 self.__iTunes = win32com.client.dynamic.Dispatch(iface)
-            except ImportError, ex: 
-                raise CannotInvoke, "Can't import win32com.client"
-            except win32com.client.pythoncom.error, ex: 
-                raise CannotInvoke, "Can't dispatch %s" % iface
+            except ImportError as ex: 
+                raise CannotInvoke("Can't import win32com.client")
+            except win32com.client.pythoncom.error as ex: 
+                raise CannotInvoke("Can't dispatch %s" % iface)
         return self.__iTunes
 
     iTunes = property(fget=_return_iTunes, doc="A live connection to iTunes")
@@ -506,10 +506,10 @@ class iTunesForWindows(Player):
             alltracks.extend(mainlibtracks)
             for track in alltracks:
                 loc = track.Location.lower()
-                if filemap.has_key(loc): 
+                if loc in filemap: 
                     filemap[loc].append(track)
             # Delete any tracks we just found. 
-            for file, tracks in filemap.items(): 
+            for file, tracks in list(filemap.items()): 
                 for track in tracks:
                     try:
                         track.Delete()
@@ -612,7 +612,7 @@ class iTunes(object):
         elif plat in ['Darwin']: 
             self.version = iTunesForDarwin
         else: 
-            raise CannotInvoke, "Unknown platform %s" % plat
+            raise CannotInvoke("Unknown platform %s" % plat)
 
 class WindowsMedia(Player): 
     def __init__(self): 
@@ -622,10 +622,10 @@ class WindowsMedia(Player):
             import win32com.client
             win32com.client.Dispatch(iface)
             self.__win32com = win32com
-        except ImportError, ex: 
-            raise CannotInvoke, "Can't import win32com.client"
-        except win32com.client.pythoncom.error, ex:  
-            raise CannotInvoke, "Can't dispatch %s" % iface
+        except ImportError as ex: 
+            raise CannotInvoke("Can't import win32com.client")
+        except win32com.client.pythoncom.error as ex:  
+            raise CannotInvoke("Can't dispatch %s" % iface)
         self.safeplaylistchars = " 0123456789abcdefghijklmnopqrstuvwxyz"
 
     def append_and_create(self, filename, playlistname, playnow=True): 
@@ -760,25 +760,25 @@ class Winamp(Player):
 
     def __init__(self):
         if "Win" not in platform.system():
-            raise CannotInvoke, "Winamp only available on Windows systems"
+            raise CannotInvoke("Winamp only available on Windows systems")
 
         self.play_command = None
         self.enqueue_command = None
         
-        import _winreg
+        import winreg
         openkeys = []
         try:    
             try:
-                key = _winreg.OpenKeyEx(_winreg.HKEY_CLASSES_ROOT,r'Winamp.File\shell\open\command',0,_winreg.KEY_QUERY_VALUE)
+                key = winreg.OpenKeyEx(winreg.HKEY_CLASSES_ROOT,r'Winamp.File\shell\open\command',0,winreg.KEY_QUERY_VALUE)
                 openkeys.insert(0,key)
-                self.play_command,type = _winreg.QueryValueEx(key, "")
-                key = _winreg.OpenKeyEx(_winreg.HKEY_CLASSES_ROOT,r'Winamp.File\shell\Enqueue\command',0,_winreg.KEY_QUERY_VALUE)
+                self.play_command,type = winreg.QueryValueEx(key, "")
+                key = winreg.OpenKeyEx(winreg.HKEY_CLASSES_ROOT,r'Winamp.File\shell\Enqueue\command',0,winreg.KEY_QUERY_VALUE)
                 openkeys.insert(0,key)
-                self.enqueue_command,type = _winreg.QueryValueEx(key, "")
+                self.enqueue_command,type = winreg.QueryValueEx(key, "")
             finally:
                 for key in openkeys:
-                    _winreg.CloseKey(key)
-        except WindowsError, e:
+                    winreg.CloseKey(key)
+        except WindowsError as e:
             errno, message = e.args
             if errno != 2:
                 raise e
@@ -900,9 +900,9 @@ def player_types():
         name = pclass.__name__
         try: 
             if pclass.__name__=="iTunes":
-		pclass().version()
-	    else:
-		pclass()
+                pclass().version()
+            else:
+                pclass()
             log.debug("Successfully invoked player %s.", name)
             valid.append(name)
         except CannotInvoke: 
@@ -912,25 +912,24 @@ def player_types():
 def get(name): 
     """Get a player object by class name. Returns None if it can't 
     be invoked. Raises KeyError if it doesn't exist."""
-    matches = [pclass for pclass in player_classes 
-               if pclass.__name__.lower() == name.lower()]
+    matches = [pclass for pclass in player_classes if pclass.__name__.lower() == name.lower()]
     assert len(matches) <= 1
     if not matches: 
         log.debug("Couldn't locate requested player class %s", name)
         raise KeyError
     pclass = matches[0]
     try: 
-	if pclass.__name__ == "iTunes":
-		return pclass().version()
-	else:
-        	return pclass()
-    except CannotInvoke, ex: 
+        if pclass.__name__ == "iTunes":
+            return pclass().version()
+        else:
+            return pclass()
+    except CannotInvoke as ex: 
         log.debug("Couldn't invoke requested player class %s", name)
         return None
 
 if __name__ == '__main__': 
     # test code
-    import conlogging
+    from . import conlogging
     logging.basicConfig()
     handler = logging.StreamHandler()
     handler.formatter = conlogging.ConsoleFormatter("%(message)s", wrap=False)

@@ -25,11 +25,11 @@ class CVS2RSS:
             def p(self, x):
                 if self.i<self.m:
                     if type(x)==type([]):
-                        print "list"
+                        print("list")
                         for i in x:
-                            print "  "+i
+                            print(("  "+i))
                     else:
-                        print x
+                        print(x)
                 self.i = self.i + 1
         
         class C:
@@ -51,7 +51,7 @@ class CVS2RSS:
                     self.m_data += "\n" + x;
                     return False;
         c = C();
-        filter(c.f, scl)
+        list(filter(c.f, scl))
         
         class Header:
             def __init__(self):
@@ -75,7 +75,7 @@ class CVS2RSS:
             def add(self, x):
                 if self.m_pos > 0:
                     li = str(x).split("\n")           
-                    li2 = (filter(lambda x2: len(x2)!=0, li))
+                    li2 = ([x2 for x2 in li if len(x2)!=0])
                     if len(li2)==0:
                         return
                     self.m_data.append(li2)
@@ -84,8 +84,8 @@ class CVS2RSS:
         h = Header()
         i = Items()
         
-        filter (h.add, c.m_items)
-        filter (i.add, c.m_items)
+        list(filter (h.add, c.m_items))
+        list(filter (i.add, c.m_items))
         from cgi import escape
         class RSSDoc:
             def __init__(self, file):
@@ -127,7 +127,7 @@ class CVS2RSS:
                     html = scstr.replace(" ", "&nbsp;")
                     html = html.replace("\n", "<br/>")
     
-                    print self.m_file, v, vp
+                    print((self.m_file, v, vp))
                     return "<code>" + html + "</code>"
                 else:
                     return "diff omitted"
@@ -158,7 +158,7 @@ class CVS2RSS:
                         self.AddElement(desc, diff, author.lstrip(), date, version, previous_version)
                         self.m_diffs -= 1
                 except:
-                    print x
+                    print(x)
                     raise
                     
             def GetDoc(self):
@@ -167,9 +167,9 @@ class CVS2RSS:
                 return self.m_xml
                 
         rss = RSSDoc(cvsfile)
-        map(rss.Parse, i.m_data)
+        list(map(rss.Parse, i.m_data))
         
-        print "writing", cvsfile+".xml"
+        print(("writing", cvsfile+".xml"))
         f = open(cvsfile+".xml", "w")
         self.ftp_batch += "put "+cvsfile+".xml\n"
         f.write(rss.GetDoc())

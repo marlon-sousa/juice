@@ -16,12 +16,11 @@
 
 import platform
 import sys
-import urllib
-import urllib2
-import httplib
+import urllib.request, urllib.parse, urllib.error
+import urllib.request, urllib.error, urllib.parse
+import http.client
 import os
 from os.path import *
-from string import join
 import time
 import re
 from hashlib import *
@@ -30,7 +29,7 @@ import logging
 import pickle, bsddb.db, bsddb.dbshelve
 
 import socket # just so we can catch timeout
-import StringIO
+import io
 
 # Parts of iPodder
 from ipodder import configuration
@@ -63,11 +62,11 @@ def PLEASEREPORT():
     log.exception("Please report this traceback:")
 
 # Customise urllib
-class AppURLopener(urllib.FancyURLopener):
+class AppURLopener(urllib.request.FancyURLopener):
     def __init__(self, *args):
         self.version = AGENT
-        urllib.FancyURLopener.__init__(self, *args)
-urllib._urlopener = AppURLopener()
+        urllib.request.FancyURLopener.__init__(self, *args)
+urllib.request._urlopener = AppURLopener()
 
 class Enclosure:
     def __init__(self, id, url, feed, length, marked, item_title, item_description, item_link, status='new', filename=None):
@@ -117,7 +116,7 @@ class Enclosure:
     def __setstate__(self, dict):
         # Left-over from a rotten debugging session Garth had in April 2007. 
         # Can be removed once his history database recovers. 
-        if dict.has_key('_url'): 
+        if '_url' in dict: 
             dict['url'] = dict.pop('_url')
             
         self.__dict__.update(dict)
@@ -170,7 +169,7 @@ class FeedScanningJob(engine.Job):
         local_resultlist = [] # self.resultlist may have other stuff in it
         is_cache_hit = False
         feedinfo = self.feedinfo
-        sio = StringIO.StringIO()
+        sio = io.StringIO()
         self.grabber = grabbers.BasicGrabber(
                 feedinfo.url, sio, state=self.state)
         try: 
@@ -182,7 +181,7 @@ class FeedScanningJob(engine.Job):
             self.hooks('autherror',feedinfo)
             self.error("Can't grab %s: %s", str(feedinfo), ex.message)
             return
-        except grabbers.GrabError, ex: 
+        except grabbers.GrabError as ex: 
             self.error("Can't grab %s: %s", str(feedinfo), ex.message)
             return
         self.grabber = None
@@ -252,7 +251,7 @@ class FeedScanningJob(engine.Job):
                     # Sync enclosure to history.
                     try:
                         encinfo = self.m_ipodder.history.get_encinfo(enclosure,index,entry,feedinfo,default_status)
-                    except historymodule.BadEnclosureException, e:
+                    except historymodule.BadEnclosureException as e:
                         self.error("Enclosure in item %d has an error: %s" % (entrynum,str(e)))
                         continue
                     
@@ -404,7 +403,7 @@ class DownloadEngine(engine.Engine):
         dlrate = 0
         live = 0
         percent_sum = 0
-        for worker, job in self.workers.items(): 
+        for worker, job in list(self.workers.items()): 
             if hasattr(job, 'grabber'): 
                 live += 1
                 ulrate += job.grabber.upload_rate
@@ -535,9 +534,9 @@ class iPodder:
 
     def console_progress(self, block_count, block_size, total_size):
         """Print console progress."""
-        print self.m_download_file + " - %.2f MB of %.2f MB\r" % (
+        print(self.m_download_file + " - %.2f MB of %.2f MB\r" % (
                 float(block_count*block_size)/1000000, 
-                float(total_size)/1000000),
+                float(total_size)/1000000), end=' ')
         sys.stdout.flush()
 
     def filter_enclosure(self, encinfo): 
@@ -720,13 +719,12 @@ class iPodder:
             log.info("That looks like a BitTorrent response file to me.")
             torrentfile = True
             if not self.config.use_torrents: 
-                raise grabbers.GrabError, \
-                        "I'm not permitted to download using BitTorrent."
+                raise grabbers.GrabError("I'm not permitted to download using BitTorrent.")
 
         destFile = feed.get_target_filename(enc)
         partialFile = destFile + '.partial'
         try:
-            log.info("Downloading %s", unicode(enc))
+            log.info("Downloading %s", str(enc))
             encinfo.download_started = time.localtime()
             self.m_download_file = filename
             bg = grabbers.BasicGrabber(enc, partialFile, state=self.state)
@@ -753,7 +751,7 @@ class iPodder:
                     self.error("Download aborted on request.")
                     raise grabbers.UserAborted
             self.running_grabbers.remove(bg)
-            log.debug("Header keys: %s", repr(headers.keys()))
+            log.debug("Header keys: %s", repr(list(headers.keys())))
             if headers.get('content-type') == "application/x-bittorrent":
                 #Failsafe for e.g. php scripts that return .torrents.
                 log.debug("Detected application/x-bittorrent mime type.")
@@ -787,7 +785,7 @@ class iPodder:
             log.error("Keyboard interrupt. Abandoning download...")
         except grabbers.UserAborted:
             log.info("User aborted download of %s", str(enc))
-        except grabbers.GrabError, ex: 
+        except grabbers.GrabError as ex: 
             log.error("Can't grab %s: %s", str(enc), ex.message)
         except:
             log.exception("Can't grab %s", enc)
@@ -846,7 +844,7 @@ class iPodder:
                 log.error("Keyboard interrupt. Abandoning download...")
             except grabbers.UserAborted:
                 log.info("User aborted download of %s", str(enc))
-            except grabbers.GrabError, ex:
+            except grabbers.GrabError as ex:
                 log.error("Can't grab what %s points to: %s", 
                     str(enc), ex.message)
             except: 
@@ -890,7 +888,7 @@ class iPodder:
                 for f in self.feeds: 
                     if f.sub_state == 'enabled' and f.dirname:
                         edt[f.dirname.lower()] = True
-                if feedinfo.dirname.lower() in edt.keys(): 
+                if feedinfo.dirname.lower() in list(edt.keys()): 
                     log.warn("Disabled feed directory target %s is also "
                              "used for enabled feeds; skipping final "
                              "purge.", feedinfo.dirname)
@@ -954,7 +952,7 @@ class iPodder:
         for file in files:
             try:
                 os.remove(file)
-            except OSError, ex:
+            except OSError as ex:
                 errno, message = ex.args
                 if errno != 2: # ENOFILE
                     log.exception("Unexpected IO error deleting file %s", file)

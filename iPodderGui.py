@@ -22,14 +22,14 @@ import time
 import threading
 import os
 import shutil
-import urllib
-import urlparse
+import urllib.request, urllib.parse, urllib.error
+import urllib.parse
 import pickle
 import logging, logging.handlers
 import inspect
 import os.path 
 import webbrowser
-import StringIO
+import io
 import locale
 from  localization import LanguageModule
 from localization import catalog
@@ -98,7 +98,7 @@ log = logging.getLogger('Juice')
 SPAM = logging.DEBUG / 2
 
 def trimurl(url): 
-    method, site, path, query, ign2 = urlparse.urlsplit(url)
+    method, site, path, query, ign2 = urllib.parse.urlsplit(url)
     sitesplit = site.split('.')
     if len(sitesplit) and sitesplit[0].startswith('www'): 
         site = '.'.join(sitesplit[1:])
@@ -125,13 +125,13 @@ class iPodderSubscribeListener(threading.Thread):
 
     def get_server(self,config):
         import random
-        from SimpleXMLRPCServer import SimpleXMLRPCServer
+        from xmlrpc.server import SimpleXMLRPCServer
         ports = []
         if config.listen_port:
             ports.append(config.listen_port)
         #IANA dynamic/private ports: 49152-65535
         #http://www.iana.org/assignments/port-numbers
-        ports.extend(random.sample(xrange(49152,65535),10))
+        ports.extend(random.sample(list(range(49152,65535)),10))
         for port in ports:
             try:
                 server = SimpleXMLRPCServer(("localhost", port),logRequests=0)
@@ -140,7 +140,7 @@ class iPodderSubscribeListener(threading.Thread):
                     config.listen_port = port
                     config.flush()
                 return server
-            except Exception, e:
+            except Exception as e:
                 log.info("Failed to get port %d, exception was: %s" % (port,str(e)))
         return None
     
@@ -323,11 +323,11 @@ class FeedManagerOpmlFetcher(threading.Thread):
         self.gui = gui
 
     def run(self):
-        sio = StringIO.StringIO()
+        sio = io.StringIO()
         grabber = grabbers.BasicGrabber(self.url, sio, politeness=0)
         try: 
             grabber()
-        except grabbers.GrabError, ex: 
+        except grabbers.GrabError as ex: 
             log.error("Can't grab %s: %s", self.url, ex.message)
             return
         self.gui.ThreadSafeDispatch(self.gui.ReplaceFromManagerOpmlEnsuringPopulate, self.url, sio.getvalue())
@@ -351,7 +351,7 @@ class UpdateChecker(threading.Thread):
             return rc
 
         try:
-            sio = StringIO.StringIO()
+            sio = io.StringIO()
             bg = grabbers.BasicGrabber(CURRENT_VERSION_URL, sio)
             bg()
             updates = parseString(sio.getvalue())
@@ -754,7 +754,7 @@ class iPodderGui(wx.App,
                 wx.EVT_MENU(self, id, self.OnMenuLang)
                 if self.m_currentlanguage == lang:
                     self.menubar.FindItemById(id).Check()
-            except TypeError, ex: 
+            except TypeError as ex: 
                 log.exception("Can't append language menu item.")
 
         langmenu.AppendSeparator()
@@ -1252,7 +1252,7 @@ class iPodderGui(wx.App,
             #print "initnew "
             self.opmltree.Init(self.ipodder.config.podcast_directory_roots, self.ipodder.feeds, self.ipodder.state)
         else: 
-            print "init"
+            print("init")
             self.opmltree.Init(self.ipodder.config.podcast_directory_roots)
             self.opmltree.SetLogPanel(self.myTextCtrl)
         self.logwindow.SetMaxLength(0)
@@ -1266,7 +1266,7 @@ class iPodderGui(wx.App,
             icon = gui.geticon(name)
             try: 
                 return self.il.Add(icon)
-            except wx.PyAssertionError, ex:
+            except wx.PyAssertionError as ex:
                 log.exception("Failed to add icon %s to image list; "\
                               "it's probably corrupt.", name)
                 return self.il.Add(gui.geticon('smiles')) # probably OK
@@ -1669,7 +1669,7 @@ class iPodderGui(wx.App,
             log.exception("Caught exception registering oneclick handlers.")
 
     def getcontent(self, url):
-        url = urllib.urlopen (url)
+        url = urllib.request.urlopen (url)
         rs = ""
         for l in url:
             rs += str(l)
@@ -1784,10 +1784,10 @@ class iPodderGui(wx.App,
         #          list_idx, image_idx)
         self.feedslist.SetItemImage(list_idx, image_idx, image_idx)
         if not state: 
-            self.feedslist.SetItemText(list_idx, unicode(feedinfo))
+            self.feedslist.SetItemText(list_idx, str(feedinfo))
         else: 
             self.feedslist.SetItemText(list_idx, "%s [%s]" % (
-                unicode(feedinfo), state))
+                str(feedinfo), state))
         #if scroll and state: 
         #    self.feedslist.EnsureVisible(list_idx)
 
@@ -2093,7 +2093,7 @@ class iPodderGui(wx.App,
                     obj.Destroy()
             except wx.PyDeadObjectError:
                 #Catch exxed out Mac windows
-                print "== Do not touch the dead objects=="
+                print("== Do not touch the dead objects==")
                 pass
 
     def CheckQuit(self):
@@ -2301,7 +2301,7 @@ class iPodderGui(wx.App,
 
         if self.searchboxfeeds.GetValue().strip() != '':
             #Restrict to spotlighted feeds.
-            mask = self.feedsdict.values()
+            mask = list(self.feedsdict.values())
             
         dl = iPodderDownload(self,mask,catchup)
         dl.ipodder = self.ipodder
@@ -2697,7 +2697,7 @@ class iPodderGui(wx.App,
             text = logging.Formatter().format(record)
         else: 
             level = logging.INFO
-            text = unicode(record)
+            text = str(record)
             
         try: 
             if self.logwindow.GetNumberOfLines() > 1000:
@@ -2795,7 +2795,7 @@ class iPodderGui(wx.App,
                 return
             # make sure command is and remains a unicode value
             # TODO should we by trying encode here?
-            command = unicode(command)
+            command = str(command)
             command = command.replace("%f", destfile)
             command = command.replace("%n", encinfo.feed.title)
             command = command.replace("%e", encinfo.item_title)
@@ -2806,7 +2806,7 @@ class iPodderGui(wx.App,
                 # so that os.system won't choke
                 command = misc.encode(command)
                 status = os.system(command)
-            except Exception, e:
+            except Exception as e:
                 status = e
             if status:
                 log.info("There was an error running this command: %s" % command)
@@ -2842,7 +2842,7 @@ class iPodderGui(wx.App,
     def OnToolLeaveMac(self, event):
         """Simulate EVT_TOOL_ENTER for Mac"""
         key = event.GetEventObject().GetId()
-        if self.selected_tool_dict.has_key(key):
+        if key in self.selected_tool_dict:
             del self.selected_tool_dict[key]
         self.frame.SetStatusText("")
 
@@ -2850,7 +2850,7 @@ class iPodderGui(wx.App,
         """Simulate EVT_TOOL_ENTER for Mac"""
         tool = event.GetEventObject().FindToolForPosition(event.GetX(),event.GetY())
         key = event.GetEventObject().GetId()
-        if self.selected_tool_dict.has_key(key):
+        if key in self.selected_tool_dict:
             old_message = self.selected_tool_dict[key]
         else:
             old_message = ""
@@ -2884,7 +2884,7 @@ class iPodderGui(wx.App,
 
         enclosures = []
         todl_count = 0
-        for encinfo in self.episodesdict.itervalues():
+        for encinfo in list(self.episodesdict.values()):
             if (encinfo.status == 'to_download'):
                 enclosures.append(encinfo)
                 todl_count += 1
@@ -3057,7 +3057,7 @@ class iPodderGui(wx.App,
 
     def updateEpisodeUI(self):
         todl_count = 0
-        for encinfo in self.episodesdict.itervalues():
+        for encinfo in list(self.episodesdict.values()):
             if (encinfo.status == 'to_download'):
                 todl_count += 1
         
@@ -3350,7 +3350,7 @@ class iPodderGui(wx.App,
                 index = self.DownloadTabIndexFromEncinfo(encinfo)
             if index == -1:
                 try: 
-                    title = unicode(encinfo.item_title)
+                    title = str(encinfo.item_title)
                     index = self.downloads.InsertStringItem(0, title)
                 except UnicodeDecodeError: 
                     log.warn("downloads.InsertStringItem failed for: %s", repr(encinfo.item_title))
@@ -3363,10 +3363,10 @@ class iPodderGui(wx.App,
                 self.downloads.SetStringItem(index,3,time.strftime("%d %b %Y, %H:%M:%S",encinfo.download_completed))
             else:
                 self.downloads.SetStringItem(index,3,"--")
-            self.downloads.SetStringItem(index,4,unicode(encinfo.feed))
+            self.downloads.SetStringItem(index,4,str(encinfo.feed))
             try: 
                 self.downloads.SetStringItem(index,5,encinfo.url)
-            except TypeError, ex: 
+            except TypeError as ex: 
                 log.exception("Can't SetStringItem for %s", repr(encinfo.url))
                 self.downloads.SetStringItem(index,5,repr(encinfo.url))
             if encinfo.status == "downloading":
@@ -3401,7 +3401,7 @@ class iPodderGui(wx.App,
 
     def DownloadTabPrune(self):
         if self.downloads.GetItemCount() > MAX_DOWNLOADS_DISPLAY:
-            self.ClearHistoryItemsByIndex(range(MAX_DOWNLOADS_DISPLAY,self.downloads.GetItemCount()))
+            self.ClearHistoryItemsByIndex(list(range(MAX_DOWNLOADS_DISPLAY,self.downloads.GetItemCount())))
 
     def DownloadTabPruneFiles(self,files):
         """This function should be called by cleanup routines that delete
@@ -3461,7 +3461,7 @@ class iPodderGui(wx.App,
         except KeyError:
             migrate = False
             try:
-                if self.ipodder.state.has_key('tmp_downloads'):
+                if 'tmp_downloads' in self.ipodder.state:
                     migrate= True
             except ImportError:
                 migrate = True
@@ -3777,14 +3777,14 @@ def main():
         log.setLevel(logging.INFO)
     try:
         config = Configuration(options)
-    except RunTwiceError, e:
+    except RunTwiceError as e:
         quiet = False
         config = e.value
         if "Win" in platform.system() and config["listen_port"]:
             #Try to raise the app.
-            import xmlrpclib, win32gui
+            import xmlrpc.client, win32gui
             try:
-                s = xmlrpclib.Server("http://localhost:%d" % config["listen_port"])
+                s = xmlrpc.client.Server("http://localhost:%d" % config["listen_port"])
                 s.wake()
                 h = s.getHwnd()
                 win32gui.SetForegroundWindow(h)

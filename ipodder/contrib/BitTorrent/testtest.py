@@ -22,7 +22,7 @@ def try_all(excludes = [], excluded_paths=[]):
     modules from files under under any of excluded_paths are also skipped.
     """
     failed = []
-    for modulename, module in modules.items():
+    for modulename, module in list(modules.items()):
         # skip builtins
         if not hasattr(module, '__file__'):
             continue
@@ -52,27 +52,27 @@ def try_single(m):
 def try_module(module, modulename, failed):
     if not hasattr(module, '__dict__'):
         return
-    for n, func in module.__dict__.items():
+    for n, func in list(module.__dict__.items()):
         if not callable(func) or n[:4] != 'test':
             continue
         name = modulename + '.' + n
         try:
-            print 'trying ' + name
+            print(('trying ' + name))
             func()
-            print 'passed ' + name
+            print(('passed ' + name))
         except:
             print_exc()
             failed.append(name)
-            print 'failed ' + name
+            print(('failed ' + name))
 
 def print_failed(failed):
-    print
+    print()
     if len(failed) == 0:
-        print 'everything passed'
+        print('everything passed')
     else:
-        print 'the following tests failed:'
+        print('the following tests failed:')
         for i in failed:
-            print i
+            print(i)
 
 
 

@@ -1,4 +1,4 @@
-import ipodder
+from . import ipodder
 
 class Enclosure:
     """Support shelved iPodder.Enclosure objects, which were moved to

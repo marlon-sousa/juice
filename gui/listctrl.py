@@ -61,7 +61,7 @@ class ColumnSorterMixin:
         self.SetColumnCount(numColumns)
         list = self.GetListCtrl()
         if not list:
-            raise ValueError, "No wx.ListCtrl available"
+            raise ValueError("No wx.ListCtrl available")
         self.Bind(wx.EVT_LIST_COL_CLICK, self.__OnColClick, list)
 
 
@@ -136,7 +136,7 @@ class ColumnSorterMixin:
 
         # If the items are equal then pick something else to make the sort value unique
         if cmpVal == 0:
-            cmpVal = apply(cmp, self.GetSecondarySortValues(col, key1, key2))
+            cmpVal = cmp(*self.GetSecondarySortValues(col, key1, key2))
 
         if ascending:
             return cmpVal

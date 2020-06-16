@@ -1,14 +1,14 @@
 # Written by Bram Cohen
 # see LICENSE.txt for license information
 
-from cStringIO import StringIO
+from io import StringIO
 from binascii import b2a_hex
 from socket import error as socketerror
 
 protocol_name = 'BitTorrent protocol'
 
 def toint(s):
-    return long(b2a_hex(s), 16)
+    return int(b2a_hex(s), 16)
 
 def tobinary(i):
     return (chr(i >> 24) + chr((i >> 16) & 0xFF) + 
@@ -70,7 +70,7 @@ class Connection:
         if not self.id:
             if s == self.encoder.my_id:
                 return None
-            for v in self.encoder.connections.values():
+            for v in list(self.encoder.connections.values()):
                 if s and v.id == s:
                     return None
             self.id = s
@@ -155,7 +155,7 @@ class Encoder:
 
     def send_keepalives(self):
         self.schedulefunc(self.send_keepalives, self.keepalive_delay)
-        for c in self.connections.values():
+        for c in list(self.connections.values()):
             if c.complete:
                 c.send_message('')
 
@@ -163,7 +163,7 @@ class Encoder:
         if id:
             if id == self.my_id:
                 return
-            for v in self.connections.values():
+            for v in list(self.connections.values()):
                 if v.id == id:
                     return
         if len(self.connections) >= self.max_initiate:
@@ -183,7 +183,7 @@ class Encoder:
         self.schedulefunc(foo, 0)
         
     def got_id(self, connection):
-        for v in self.connections.values():
+        for v in list(self.connections.values()):
             if connection is not v and connection.id == v.id:
                 connection.close()
                 return

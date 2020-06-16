@@ -2,7 +2,7 @@
 # see LICENSE.txt for license information
 
 from types import *
-from cStringIO import StringIO
+from io import StringIO
 
 def formatDefinitions(options, COLS):
     s = StringIO()
@@ -53,7 +53,7 @@ def parseargs(argv, options, minargs = None, maxargs = None):
                 usage('parameter passed in at end with no value')
             key, value = argv[pos][2:], argv[pos+1]
             pos += 2
-            if not longkeyed.has_key(key):
+            if key not in longkeyed:
                 usage('unknown key --' + key)
             longname, default, doc = longkeyed[key]
             try:
@@ -61,14 +61,14 @@ def parseargs(argv, options, minargs = None, maxargs = None):
                 if t is NoneType or t is StringType:
                     config[longname] = value
                 elif t in (IntType, LongType):
-                    config[longname] = long(value)
+                    config[longname] = int(value)
                 elif t is FloatType:
                     config[longname] = float(value)
                 else:
                     assert 0
-            except ValueError, e:
+            except ValueError as e:
                 usage('wrong format of --%s - %s' % (key, str(e)))
-    for key, value in config.items():
+    for key, value in list(config.items()):
         if value is None:
             usage("Option --%s is required." % key)
     if minargs is not None and len(args) < minargs:

@@ -7,7 +7,7 @@ import types
 from xml.sax import make_parser, handler
 import wx
 import logging
-import StringIO
+import io
 import os.path
 import sys
 
@@ -19,7 +19,7 @@ from ipodder.contrib import urlnorm
 from ipodder.contrib import GenericDispatch
 import gui
 from gui import images
-from skin import \
+from .skin import \
     DIRECTORY_LINK_SCANNED,\
     DIRECTORY_LINK_UNSCANNED,\
     DIRECTORY_LINK_SCANNING
@@ -54,7 +54,7 @@ class TreeNode:
             opmltree = parent.opmltree
             id = opmltree.AppendItem(parent.id, node.text)
         else: 
-            raise ValueError, parent
+            raise ValueError(parent)
         #log.debug("id: %s", repr(id))
         opmltree.SetPyData(id, self)
 
@@ -179,13 +179,13 @@ class TreeNode:
         node = self.node
         self.seticon(expanding=True)
         self.setmessage("downloading...")
-        sio = StringIO.StringIO()
+        sio = io.StringIO()
         grabber = grabbers.BasicGrabber(node.url, sio, state=self.opmltree.state, offline=False)
         grabber.hooks.add('updated', lambda: self.setmessage(
             "downloading %d%%" % (100*grabber.fraction_done)))
         try: 
             res = grabber()
-        except grabbers.GrabError, ex: 
+        except grabbers.GrabError as ex: 
             log.error("Grab failed (%s) for %s", ex.message, node.url)
             self.seticon(expanding=False)
             self.setmessage(ex.message)
@@ -199,7 +199,7 @@ class TreeNode:
         try: 
             node = outlines.Head.fromopml(opml)
             self.update_user_root_title(node)
-        except (AssertionError, outlines.xml.sax._exceptions.SAXParseException), ex: 
+        except (AssertionError, outlines.xml.sax._exceptions.SAXParseException) as ex: 
             log.error("Couldn't parse XML or OPML for node: %s", node.url)
             #log.info(node.url)
             #log.info(opml)
@@ -276,7 +276,7 @@ class OPMLTree(GenericDispatch.GenericDispatchMixin, wx.TreeCtrl):
             icon = gui.geticon(name)
             try: 
                 return il.Add(icon)
-            except wx.PyAssertionError, ex:
+            except wx.PyAssertionError as ex:
                 log.exception("Failed to add icon %s to image list; "\
                               "it's probably corrupt.", name)
                 return il.Add(gui.geticon('smiles')) # probably OK
@@ -394,7 +394,7 @@ class OPMLTree(GenericDispatch.GenericDispatchMixin, wx.TreeCtrl):
         return str(node)
      
     def GetChildren( self, node ):
-        if type(node) in (types.ListType, types.TupleType):
+        if type(node) in (list, tuple):
             return node
         else:
             return []

@@ -1,4 +1,4 @@
-import _winreg
+import winreg
 import sys
 from os.path import abspath
 import logging
@@ -12,13 +12,13 @@ def read_reg_key(key,subkey,value):
 
     try:    
         try:
-            key = _winreg.OpenKeyEx(key,subkey,0,_winreg.KEY_QUERY_VALUE)
+            key = winreg.OpenKeyEx(key,subkey,0,winreg.KEY_QUERY_VALUE)
             openkeys.insert(0,key)
-            return _winreg.QueryValueEx(key, value)
+            return winreg.QueryValueEx(key, value)
         finally:
             for key in openkeys:
-                _winreg.CloseKey(key)
-    except WindowsError, e:
+                winreg.CloseKey(key)
+    except WindowsError as e:
         errno, message = e.args
         if errno != 2:
             raise e
@@ -32,19 +32,19 @@ def deregister_file_extension(ext):
     replacement = ""
     try:    
         try:
-            key = _winreg.OpenKeyEx(_winreg.HKEY_CLASSES_ROOT,"%s\\OpenWithProgIds" % ext,0,_winreg.KEY_QUERY_VALUE)
+            key = winreg.OpenKeyEx(winreg.HKEY_CLASSES_ROOT,"%s\\OpenWithProgIds" % ext,0,winreg.KEY_QUERY_VALUE)
             openkeys.insert(0,key)
-            for i in range(0,_winreg.QueryInfoKey(key)[1]):
-                value = _winreg.EnumValue(key,i)[0]
+            for i in range(0,winreg.QueryInfoKey(key)[1]):
+                value = winreg.EnumValue(key,i)[0]
                 if value and value != "Juice%s" % ext:
                     replacement = value   
-            key = _winreg.OpenKeyEx(_winreg.HKEY_CLASSES_ROOT,ext,0,_winreg.KEY_ALL_ACCESS)
+            key = winreg.OpenKeyEx(winreg.HKEY_CLASSES_ROOT,ext,0,winreg.KEY_ALL_ACCESS)
             openkeys.insert(0,key)
-            _winreg.SetValueEx(key,"",0,_winreg.REG_SZ,replacement)
+            winreg.SetValueEx(key,"",0,winreg.REG_SZ,replacement)
         finally:
             for key in openkeys:
-                _winreg.CloseKey(key)
-    except WindowsError, e:
+                winreg.CloseKey(key)
+    except WindowsError as e:
         errno, message = e.args
         if errno != 2:
             raise e
@@ -55,17 +55,17 @@ def deregister_pseudo_protocol(protocol):
     openkeys = []
     try:    
         try:
-            key = _winreg.OpenKeyEx(_winreg.HKEY_CLASSES_ROOT,"%s\\shell\\open" % subkey,0,_winreg.KEY_ALL_ACCESS)
+            key = winreg.OpenKeyEx(winreg.HKEY_CLASSES_ROOT,"%s\\shell\\open" % subkey,0,winreg.KEY_ALL_ACCESS)
             openkeys.insert(0,key)
-            _winreg.DeleteKey(key,"command")
+            winreg.DeleteKey(key,"command")
         finally:
             for key in openkeys:
-                _winreg.CloseKey(key)
-    except WindowsError, e:
+                winreg.CloseKey(key)
+    except WindowsError as e:
         log.exception("Error deregistering protcol handler for '%s'" % subkey)
 
 try:
-    OPEN = read_reg_key(_winreg.HKEY_CLASSES_ROOT,"Applications\Juice.exe\shell\open\command","")[0]
+    OPEN = read_reg_key(winreg.HKEY_CLASSES_ROOT,"Applications\Juice.exe\shell\open\command","")[0]
 except:
     OPEN = None
 
@@ -78,33 +78,33 @@ if OPEN == None:
 FILE_TYPES = { \
     'filetype_rss' : ('.rss', \
          [ \
-             (_winreg.HKEY_CLASSES_ROOT,'.rss','','Juice.rss'), \
-             (_winreg.HKEY_CLASSES_ROOT,'.rss','PerceivedType','text'), \
-             (_winreg.HKEY_CLASSES_ROOT,'.rss','Content Type','application/rss+xml'), \
+             (winreg.HKEY_CLASSES_ROOT,'.rss','','Juice.rss'), \
+             (winreg.HKEY_CLASSES_ROOT,'.rss','PerceivedType','text'), \
+             (winreg.HKEY_CLASSES_ROOT,'.rss','Content Type','application/rss+xml'), \
          ], \
          deregister_file_extension, \
     ), \
     'filetype_pcast' : ('.pcast', \
          [ \
-             (_winreg.HKEY_CLASSES_ROOT,'.pcast','','Juice.pcast'), \
-             (_winreg.HKEY_CLASSES_ROOT,'.pcast','PerceivedType','text'), \
-             (_winreg.HKEY_CLASSES_ROOT,'.pcast','Content Type','application/x-podcast'), \
+             (winreg.HKEY_CLASSES_ROOT,'.pcast','','Juice.pcast'), \
+             (winreg.HKEY_CLASSES_ROOT,'.pcast','PerceivedType','text'), \
+             (winreg.HKEY_CLASSES_ROOT,'.pcast','Content Type','application/x-podcast'), \
          ], \
          deregister_file_extension, \
     ), \
     'filetype_pcast_protocol' : ('pcast://', \
          [ \
-             (_winreg.HKEY_CLASSES_ROOT,'pcast','','URL: Pcast Protocol'), \
-             (_winreg.HKEY_CLASSES_ROOT,'pcast','URL Protocol',''), \
-             (_winreg.HKEY_CLASSES_ROOT,'pcast\shell\open\command','',OPEN), \
+             (winreg.HKEY_CLASSES_ROOT,'pcast','','URL: Pcast Protocol'), \
+             (winreg.HKEY_CLASSES_ROOT,'pcast','URL Protocol',''), \
+             (winreg.HKEY_CLASSES_ROOT,'pcast\shell\open\command','',OPEN), \
          ], \
          deregister_pseudo_protocol, \
     ),
     'filetype_podcast_protocol' : ('podcast://', \
          [ \
-             (_winreg.HKEY_CLASSES_ROOT,'podcast','','URL: Podcast Protocol'), \
-             (_winreg.HKEY_CLASSES_ROOT,'podcast','URL Protocol',''), \
-             (_winreg.HKEY_CLASSES_ROOT,'podcast\shell\open\command','',OPEN), \
+             (winreg.HKEY_CLASSES_ROOT,'podcast','','URL: Podcast Protocol'), \
+             (winreg.HKEY_CLASSES_ROOT,'podcast','URL Protocol',''), \
+             (winreg.HKEY_CLASSES_ROOT,'podcast\shell\open\command','',OPEN), \
          ], \
          deregister_pseudo_protocol, \
     ),
@@ -117,7 +117,7 @@ def do_registrations(config,force,deregistered_types=[]):
         return
 
     #Deal with any deregistrations.
-    for filetype in FILE_TYPES.keys():
+    for filetype in list(FILE_TYPES.keys()):
         if filetype in deregistered_types:
             (name,regkeys,unreg_proc) = FILE_TYPES[filetype]
             if unreg_proc:
@@ -134,7 +134,7 @@ def do_registrations(config,force,deregistered_types=[]):
 
     #If we get here we're either forcing or registering for the first time.
     unregistered_config_attrs = []
-    for filetype in FILE_TYPES.keys():
+    for filetype in list(FILE_TYPES.keys()):
         attr = "handle_%s" % filetype
         if getattr(config,attr,False):
             (name,regkeys,unreg_proc) = FILE_TYPES[filetype]
@@ -142,12 +142,12 @@ def do_registrations(config,force,deregistered_types=[]):
             for (key, subkey, value, data) in regkeys:
                 openkeys = []
                 try:
-                    kh = _winreg.CreateKey(key,subkey)
+                    kh = winreg.CreateKey(key,subkey)
                     openkeys.insert(0,kh)
-                    _winreg.SetValueEx(kh,value,0,_winreg.REG_SZ,data)
+                    winreg.SetValueEx(kh,value,0,winreg.REG_SZ,data)
                 finally:
                     for kh in openkeys:
-                        _winreg.CloseKey(kh)
+                        winreg.CloseKey(kh)
             
     return (True, was_anybody,[])
 
@@ -162,7 +162,7 @@ def am_i_registered(config):
     was_anybody = False
     unregistered_attrs = []
     
-    for filetype in FILE_TYPES.keys():
+    for filetype in list(FILE_TYPES.keys()):
         attr = "handle_%s" % filetype
         if getattr(config,attr,False):
             (name,regkeys,unreg_proc) = FILE_TYPES[filetype]

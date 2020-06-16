@@ -21,16 +21,16 @@ for top in ['ipodder', 'gui']:
             name, ext = os.path.splitext(file)
             if not ext in ['.py']: 
                 continue
-            print file
+            print(file)
             zf.write(os.path.join(root, file))
 
 for root, files in setup.kwargs['data_files']: 
     for file in files: 
-        print file
+        print(file)
         zf.write(file)
 
 for file in ['iPodderGui.py']: 
-    print file
+    print(file)
     zf.write(file)
 
 zf.close()

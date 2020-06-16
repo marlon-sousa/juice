@@ -56,7 +56,7 @@ class State(object):
         self.__shelf = shelve.open(self.__config.state_db_file, 
                                      'c')#, dbenv=env)
         log.debug("State database opened with %d entries.", 
-                  len(self.keys()))
+                  len(list(self.keys())))
 
     def call_and_close(self, callable, *a, **kw): 
         """Wrap a call in a try: finally: that'll force state closed."""
@@ -101,10 +101,10 @@ class State(object):
                 try: 
                     idb.verify(filename)
                     idb.close()
-                except bsddb._db.DBVerifyBadError, ex: 
+                except bsddb._db.DBVerifyBadError as ex: 
                     log.exception("Database verification failed.")
                     should_salvage = True
-            except Exception, e:
+            except Exception as e:
                 log.exception("That didn't work.")
                 try: 
                     idb.close()
@@ -131,7 +131,7 @@ class State(object):
             idb = db.DB()
             try: 
                 idb.verify(filename, outfile=recovery, flags=db.DB_SALVAGE)
-            except bsddb._db.DBVerifyBadError, ex: 
+            except bsddb._db.DBVerifyBadError as ex: 
                 pass
             idb.close()
             os.unlink(filename)
@@ -139,7 +139,7 @@ class State(object):
             cdb.open(corrupt)
             rdb = db.DB()
             rdb.open(filename, dbtype=db.DB_HASH, flags=db.DB_CREATE)
-            keys = cdb.keys()
+            keys = list(cdb.keys())
             goodkeys = []
             for key in keys:
                 for good in ('cache\0', 'lastfeedid', 'feed#'): 
@@ -177,7 +177,7 @@ class State(object):
             threshold = time.time() - 3600*24*days
             bodycount = 0
             try: 
-                for victim in [k for k in shelf.keys() if k.startswith('cache\0')]: 
+                for victim in [k for k in list(shelf.keys()) if k.startswith('cache\0')]: 
                    try: 
                        lastchecked = state[k]['checked']
                        if time.mktime(lastchecked) >= threshold: 
@@ -219,14 +219,14 @@ class State(object):
     def keys(self): 
         try: 
             self._acquire()
-            return self.__shelf.keys()
+            return list(self.__shelf.keys())
         finally:
             self._release()
 
     def __len__(self): 
         try: 
             self._acquire()
-            return len(self.__shelf.keys())
+            return len(list(self.__shelf.keys()))
         finally:
             self._release()
 
@@ -240,14 +240,14 @@ class State(object):
     def has_key(self, key):
         try: 
             self._acquire()
-            return self.__shelf.has_key(key)
+            return key in self.__shelf
         finally:
             self._release()
 
     def iterkeys(self): 
         try: 
             self._acquire()
-            return self.__shelf.iterkeys()
+            return iter(list(self.__shelf.keys()))
         finally:
             self._release()
 

@@ -19,13 +19,13 @@ from xml.sax import make_parser, handler
 from gui import images
 import wx
 import logging
-import urllib2, socket
+import urllib.request, urllib.error, urllib.parse, socket
 import os.path
 import sys
-import urllib 
+import urllib.request, urllib.parse, urllib.error 
 import pickle, shelve
 from ipodder import configuration
-import StringIO
+import io
 import threading
 import time
 
@@ -36,8 +36,8 @@ def PrintLog(logpanel, message):
 	log.debug("%s", message)
 	try:
 		if logpanel==-1:
-			print logpanel
-			print message
+			print(logpanel)
+			print(message)
 		else:
 			# should do reflection here to support all kind of controls
 			# for now we assume wx.TextCtrl
@@ -64,13 +64,13 @@ class OPMLCache:
                         self.AddStream(j[0])
 			
         def AddStream(self, theurl):
-             if self.m_state.has_key(theurl):
+             if theurl in self.m_state:
                  self.m_opml_streams[theurl]=self.m_state[theurl]
              else:
                  self.m_opml_streams[theurl]=theurl
                  
         def HasOPML(self, url):
-			return self.m_opml_streams.has_key(url)
+			return url in self.m_opml_streams
 			
         def GetOPML(self, url):
 			return self.m_opml_streams[url]
@@ -79,7 +79,7 @@ class OPMLCache:
              for opmlurl in self.m_opml_streams:
                  log.info("checking "+opmlurl)
                  try:
-                     dwnopml = urllib.urlopen(opmlurl) 
+                     dwnopml = urllib.request.urlopen(opmlurl) 
                      theopml = ""
                      for line in dwnopml:
                          theopml = theopml + line
@@ -119,18 +119,18 @@ class OPMLEventHandler(handler.ContentHandler):
 		if self.m_path == "/opml/head/title":
 			self.m_chanTitle = ""
 		
-		if name=="outline" and attrs.has_key("text"):
+		if name=="outline" and "text" in attrs:
 			self.m_tree_path += "<*:)*>" + attrs["text"]			
 	
 			new_node = False
 			parent = self.m_current_node
 			
 			previous_parent_path = self.m_tree_path[0:self.m_tree_path.rfind('<*:)*>')]
-			if self.m_tree.has_key(previous_parent_path):
+			if previous_parent_path in self.m_tree:
 				parent = self.m_tree[previous_parent_path]				
 				
 			url = ""
-			if attrs.has_key("url"):
+			if "url" in attrs:
 				url = attrs["url"]
 			self.m_tree[self.m_tree_path]= self.m_lazy_tree.AddGenericItem(parent, attrs["text"], url)
 			
@@ -155,11 +155,11 @@ class iPodderTuner:
 					parser.setContentHandler(opmlhandler)
 					opmlcache = OPMLCache()
 					if opmlcache.HasOPML(contenturl)==True:
-						data = StringIO.StringIO(opmlcache.GetOPML(contenturl))						
+						data = io.StringIO(opmlcache.GetOPML(contenturl))						
 						parser.parse(data)    
 					else:
 						parser.parse(contenturl)    
-				except urllib2.URLError, ex: 
+				except urllib.error.URLError as ex: 
 					if isinstance(ex.reason, socket.error): 
 						args = ex.reason.args
 						if len(args) == 2: 
@@ -280,7 +280,7 @@ class OPMLTree(wxTreeCtrl):
 		return str(node)
 	 
 	def GetChildren( self, node ):
-		if type(node) in (types.ListType, types.TupleType):
+		if type(node) in (list, tuple):
 			return node
 		else:
 			return []
@@ -307,7 +307,7 @@ def rununittest():
             for j in i[1]:
 	                opmlc.GetOPML(j[0])
     while True:
-        print "main thread"
+        print("main thread")
         time.sleep(1)
         
 if __name__ == "__main__":

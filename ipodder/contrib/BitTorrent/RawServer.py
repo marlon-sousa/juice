@@ -3,14 +3,14 @@
 
 from bisect import insort
 import socket
-from cStringIO import StringIO
+from io import StringIO
 from traceback import print_exc
 from errno import EWOULDBLOCK, ENOBUFS
 try:
     from select import poll, error, POLLIN, POLLOUT, POLLERR, POLLHUP
     timemult = 1000
 except ImportError:
-    from selectpoll import poll, error, POLLIN, POLLOUT, POLLERR, POLLHUP
+    from .selectpoll import poll, error, POLLIN, POLLOUT, POLLERR, POLLHUP
     timemult = 1
 from threading import Thread, Event
 from time import time, sleep
@@ -65,7 +65,7 @@ class SingleSocket:
                             self.buffer[0] = self.buffer[0][amount:]
                         break
                     del self.buffer[0]
-            except socket.error, e:
+            except socket.error as e:
                 code, msg = e
                 if code != EWOULDBLOCK:
                     self.raw_server.dead_from_write.append(self)
@@ -76,7 +76,7 @@ class SingleSocket:
             self.raw_server.poll.register(self.socket, all)
 
 def default_error_handler(x):
-    print x
+    print(x)
 
 class RawServer:
     def __init__(self, doneflag, timeout_check_interval, timeout, noisy = True,
@@ -102,7 +102,7 @@ class RawServer:
         self.add_task(self.scan_for_timeouts, self.timeout_check_interval)
         t = time() - self.timeout
         tokill = []
-        for s in self.single_sockets.values():
+        for s in list(self.single_sockets.values()):
             if s.last_hit < t:
                 tokill.append(s)
         for k in tokill:
@@ -134,7 +134,7 @@ class RawServer:
             sock.connect_ex(dns)
         except socket.error:
             raise
-        except Exception, e:
+        except Exception as e:
             raise socket.error(str(e))
         self.poll.register(sock, POLLIN)
         s = SingleSocket(self, sock, handler)
@@ -177,7 +177,7 @@ class RawServer:
                             self._close_socket(s)
                         else:
                             s.handler.data_came_in(s, data)
-                    except socket.error, e:
+                    except socket.error as e:
                         code, msg = e
                         if code != EWOULDBLOCK:
                             self._close_socket(s)
@@ -228,7 +228,7 @@ class RawServer:
                     if self.doneflag.isSet():
                         return
                     self._close_dead()
-                except error, e:
+                except error as e:
                     if self.doneflag.isSet():
                         return
                     # I can't find a coherent explanation for what the behavior should be here,
@@ -251,7 +251,7 @@ class RawServer:
                     print_exc(file = data)
                     self.errorfunc(data.getvalue())
         finally:
-            for ss in self.single_sockets.values():
+            for ss in list(self.single_sockets.values()):
                 ss.close()
             self.server.close()
 

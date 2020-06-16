@@ -11,8 +11,8 @@
 from urllib import *
 from urllib2 import *
 from gzip import GzipFile
-from StringIO import StringIO
-from __init__ import version
+from io import StringIO
+from .__init__ import version
 import pprint
 
 
@@ -27,9 +27,9 @@ class HTTPContentEncodingHandler(HTTPHandler):
         req.add_header("Accept-Encoding","gzip")
         req.add_header('User-Agent', 'BitTorrent/' + version)
         if DEBUG: 
-            print "Sending:" 
-            print req.headers
-            print "\n"
+            print("Sending:") 
+            print((req.headers))
+            print("\n")
         fp = HTTPHandler.http_open(self,req)
         headers = fp.headers
         if DEBUG: 
@@ -46,9 +46,9 @@ class addinfourldecompress(addinfourl):
         # basically this only works for the most simplistic case and will
         # break in some other cases, but for now we only care about making
         # this work with the BT tracker so....
-        if headers.has_key('content-encoding') and headers['content-encoding'] == 'gzip':
+        if 'content-encoding' in headers and headers['content-encoding'] == 'gzip':
             if DEBUG:
-                print "Contents of Content-encoding: " + headers['Content-encoding'] + "\n"
+                print(("Contents of Content-encoding: " + headers['Content-encoding'] + "\n"))
             self.gzip = 1
             self.rawfp = fp
             fp = GzipStream(fp)
@@ -113,26 +113,26 @@ def test():
        At the moment this is lame.
     """
 
-    print "Running unit tests.\n"
+    print("Running unit tests.\n")
 
     def printcomp(fp):
         try:
             if fp.iscompressed():
-                print "GET was compressed.\n"
+                print("GET was compressed.\n")
             else:
-                print "GET was uncompressed.\n"
+                print("GET was uncompressed.\n")
         except:
-            print "no iscompressed function!  this shouldn't happen"
+            print("no iscompressed function!  this shouldn't happen")
 
-    print "Trying to GET a compressed document...\n"
+    print("Trying to GET a compressed document...\n")
     fp = urlopen('http://a.scarywater.net/hng/index.shtml')
-    print fp.read()
+    print((fp.read()))
     printcomp(fp)
     fp.close()
 
-    print "Trying to GET an unknown document...\n"
+    print("Trying to GET an unknown document...\n")
     fp = urlopen('http://www.otaku.org/')
-    print fp.read()
+    print((fp.read()))
     printcomp(fp)
     fp.close()
 

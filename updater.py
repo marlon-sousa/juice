@@ -33,7 +33,7 @@ import os.path
 import re
 import time
 import zipfile
-import StringIO
+import io
 
 loadedUpdates = {}
 
@@ -49,7 +49,7 @@ def loadupdates(signaturetag='juice'):
     assert signaturetag == 'juice', \
             "Haven't figured out a sensible way to handle file imports " \
             "from multiple tags yet, so disabling it."
-    if loadedUpdates.has_key(signaturetag): 
+    if signaturetag in loadedUpdates: 
         return # don't do it more than once per signature
     rundir = getrundir()
     logfile = os.path.join(rundir, 'updater.log')
@@ -77,7 +77,7 @@ def loadupdates(signaturetag='juice'):
         tell(log, "No updates found.")
         return
 
-    timestamps = updates.keys()
+    timestamps = list(updates.keys())
     timestamps.sort()
     timestamps.reverse()
     for timestamp in timestamps: 
@@ -102,7 +102,7 @@ def open(filename, mode='r', signaturetag='ipodder'):
         try: 
             zipfile = updateinfo['object']
             fileinfo = zipfile.getinfo(filename)
-            return StringIO.StringIO(zipfile.read(filename))
+            return io.StringIO(zipfile.read(filename))
         except KeyError: 
             pass
     return file(os.path.join(getrundir(), filename, mode))
@@ -113,12 +113,12 @@ def tell(log, message):
     # py2exed dists.  This could be made clever obviously.
     # print >> sys.stderr, message
     if log is not None: 
-        print >> log, message
+        print(message, file=log)
 
 if __name__ == '__main__': 
     loadupdates()
-    print sys.path
+    print(sys.path)
     from ipodder import history
-    print history.__file__
-    print ''.join(open(os.path.join('ipodder', 'history.py')).readlines()[1:5])+'...'
+    print(history.__file__)
+    print(''.join(open(os.path.join('ipodder', 'history.py')).readlines()[1:5])+'...')
 

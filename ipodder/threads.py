@@ -4,7 +4,7 @@
 
 import threading
 import logging
-import hooks
+from . import hooks
 import sys
 
 COM = False
@@ -105,7 +105,7 @@ class OurThread(threading.Thread, SelfLogger):
         """Check for exceptions and re-raise them in the calling thread."""
         if self.exc_info is not None: 
             one, two, three = self.exc_info
-            raise one, two, three
+            raise one(two).with_traceback(three)
 
 if __name__ == '__main__': 
     logging.basicConfig()
@@ -114,7 +114,7 @@ if __name__ == '__main__':
     sl.fatal("I can see the fnords!")
 
     def boom(): 
-        raise AssertionError, "KABOOM!"
+        raise AssertionError("KABOOM!")
     
     ot = OurThread(target=boom)
     ot.fatal("Boo?")

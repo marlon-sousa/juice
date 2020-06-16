@@ -2,9 +2,9 @@
 # iPodder engine
 #
 
-import threads
+from . import threads
 import threading
-import Queue
+import queue
 import bisect
 import time
 import logging
@@ -13,7 +13,7 @@ from ipodder import hooks
 
 log = logging.getLogger('Juice')
 
-class PriorityQueue(Queue.Queue): 
+class PriorityQueue(queue.Queue): 
     """Prioritised Queue, as per bisect module documentation."""
     def _put(self, item): 
         bisect.insort(self.queue, item)
@@ -44,7 +44,7 @@ class Job(threads.SelfLogger):
         """Make us callable."""
         try: 
             self.run()
-        except Exception, ex: 
+        except Exception as ex: 
             self.exception("Job failed with uncaught exception.")
         self.doneflag.set() # just in case someone is waiting
 
@@ -144,7 +144,7 @@ class Engine(threads.OurThread):
             # Get a job and fire up a worker. 
             try: 
                 priority, job = self.queue.get(True, 1)
-            except Queue.Empty: 
+            except queue.Empty: 
                 if isloud: 
                     self.spam("No jobs waiting; %d worker(s) live.", nworkers)
                     last_loud = time.time()
@@ -173,7 +173,7 @@ class Engine(threads.OurThread):
     def checkworkers(self): 
         # self.debug("Checking for dead workers...")
         nworkers = len(self.workers)
-        for worker in self.workers.keys(): 
+        for worker in list(self.workers.keys()): 
             if not worker.isAlive(): 
                 self.debug("Worker %s is an ex parrot.", repr(worker))
                 self.donejobs += 1
@@ -197,7 +197,7 @@ class Engine(threads.OurThread):
         self.info("Asked to stop with %d job(s) running.",len(self.workers))
         self.keepgoing = False
         self.keeplaunching = False
-        for worker, job in self.workers.items(): 
+        for worker, job in list(self.workers.items()): 
             job.stop(wait=False)
         if not wait: 
             self.warn("Not bothering to wait...")

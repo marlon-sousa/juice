@@ -9,12 +9,12 @@ Notes: Some code taken from ActiveState forums
 
 import sys
 import getopt
-import httplib
+import http.client
 import xml.dom.minidom
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 import re
 import base64
-from urlparse import urlparse
+from urllib.parse import urlparse
 import optparse
 
 # I wanted to touch a particular web page (in order to open/
@@ -32,17 +32,17 @@ class HTTPinger:
         "Safe ping. Prints stuff rather than throwing exceptions."
         try:
             return self.ping(url, webuser, webpass)
-        except urllib2.HTTPError, e:
+        except urllib.error.HTTPError as e:
             if e.code == 401:
-                print 'not authorized'
+                print('not authorized')
             elif e.code == 404:
-                print 'not found'
+                print('not found')
             elif e.code == 503:
-                print 'service unavailable'
+                print('service unavailable')
             else:
-                print 'unknown error: '
+                print('unknown error: ')
         else:
-            print 'success'
+            print('success')
         return 0
         
     def ping(self, url, webuser, webpass):
@@ -52,15 +52,15 @@ class HTTPinger:
         finder = HTTPRealmFinder(url)
         realm = finder.get()
         
-        handler = urllib2.HTTPBasicAuthHandler()
+        handler = urllib.request.HTTPBasicAuthHandler()
         handler.add_password(realm, domain, webuser, webpass)
         
-        opener = urllib2.build_opener(handler)
-        urllib2.install_opener(opener)
+        opener = urllib.request.build_opener(handler)
+        urllib.request.install_opener(opener)
         
-        return urllib2.urlopen(url)
+        return urllib.request.urlopen(url)
 
-class HTTPRealmFinderHandler(urllib2.HTTPBasicAuthHandler):
+class HTTPRealmFinderHandler(urllib.request.HTTPBasicAuthHandler):
     def http_error_401(self, req, fp, code, msg, headers):
         realm_string = headers['www-authenticate']
         
@@ -79,13 +79,13 @@ class HTTPRealmFinder:
         handler.add_password(None, domain, 'foo', 'bar')
         self.handler = handler
         
-        opener = urllib2.build_opener(handler)
-        urllib2.install_opener(opener)
+        opener = urllib.request.build_opener(handler)
+        urllib.request.install_opener(opener)
 
     def ping(self, url):
         try:
-            urllib2.urlopen(url)
-        except urllib2.HTTPError, e:
+            urllib.request.urlopen(url)
+        except urllib.error.HTTPError as e:
             pass
 
     def get(self):
@@ -98,7 +98,7 @@ class HTTPRealmFinder:
         return realm
 
     def prt(self):
-        print self.get()
+        print((self.get()))
     
 def getText(nodelist):
     rc = ""
@@ -130,7 +130,7 @@ def extractsubs(username, password, podcastFolder):
                 if xmlurl != "":
                     yield xmlurl
     if not spotted: 
-        raise KeyError, podcastFolder
+        raise KeyError(podcastFolder)
 
 def makeCommandLineParser(): 
     usage = "usage: %prog --username=U --password=P --folder=F"
@@ -167,7 +167,7 @@ def main(argv=None):
         if not getattr(options, att): 
             parser.error("compulsory option --%s not supplied." % opt)
     for sub in extractsubs(options.bl_username, options.bl_password, options.bl_folder): 
-        print sub
+        print(sub)
     return 0
 
 if __name__ == "__main__":
